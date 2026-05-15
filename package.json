@@ -1,0 +1,29 @@
+{
+  "name": "form4api-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Form4API — SEC Form 4 insider trading data",
+  "keywords": ["mcp", "insider-trading", "sec", "form4", "finance", "stocks"],
+  "license": "MIT",
+  "bin": {
+    "form4api-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
