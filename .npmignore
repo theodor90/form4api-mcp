@@ -1,0 +1,11 @@
+# package.json `files: ["dist"]` already restricts the published tarball.
+# .npmignore is a belt-and-braces guard against accidental inclusions.
+src/
+test/
+tsconfig.json
+*.log
+.env
+.env.local
+.claude/
+.mcp.json
+.github/
