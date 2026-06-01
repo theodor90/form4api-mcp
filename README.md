@@ -20,7 +20,7 @@ An [MCP](https://modelcontextprotocol.io) server that exposes the hosted [Form4A
 
 ### 1. Get a free API key
 
-Go to [form4api.com](https://form4api.com) → Sign in → Dashboard. Free plan includes 1,000 requests/day, no credit card required.
+Go to [form4api.com](https://form4api.com) → Sign in → Dashboard. Free plan includes 500 requests/day, no credit card required.
 
 ### 2. Add to your MCP client
 
@@ -164,7 +164,7 @@ The MCP wraps the same backend as all of the above — every fact your LLM cites
 | `get_insider_career_summary` | — | ✓ | ✓ |
 | `get_signals`, `get_sentiment` | — | — | ✓ |
 | `get_form144`, `get_holdings`, `get_managers` | — | — | ✓ |
-| Requests/day | 1,000 | 10,000 | 100,000 |
+| Requests/day | 500 | 50,000 | 250,000 |
 
 When a tool requires a higher plan, the MCP returns a structured `upgrade_required` payload (with `required_plan` and `upgrade_url`) so the LLM can surface the path to you directly. No mid-conversation 402 confusion.
 

@@ -101,7 +101,7 @@ async function runTest() {
       clientInfo: { name: 'test-client', version: '1.0.0' },
     })
     assert(initRes.result?.serverInfo?.name === 'form4api', 'serverInfo.name === "form4api"')
-    assert(initRes.result?.serverInfo?.version === '1.2.0', 'serverInfo.version === "1.2.0"')
+    assert(initRes.result?.serverInfo?.version === '1.2.1', 'serverInfo.version === "1.2.1"')
     assert(!initRes.error, 'no error in initialize response')
 
     // Send initialized notification (no response expected)
