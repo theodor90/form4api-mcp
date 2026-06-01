@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: MCP protocol test
+        run: npm test
+
+  codegen-check:
+    runs-on: ubuntu-latest
+    # Runs in parallel with build-and-test. Fails fast if a backend
+    # OpenAPI change landed without a matching `npm run codegen` regen.
+    # See codegen/check.mjs for the fix instructions printed on failure.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Verify _generated.ts matches the live OpenAPI spec
+        run: npm run codegen:check

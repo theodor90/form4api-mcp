@@ -58,7 +58,7 @@ FORM4API_KEY=fapi_live_your_key npx form4api-mcp
 
 ---
 
-## Available tools (14)
+## Available tools (19)
 
 ### Form 4 insider trading
 
@@ -93,6 +93,12 @@ FORM4API_KEY=fapi_live_your_key npx form4api-mcp
 | Tool | Description | Plan |
 |---|---|---|
 | `check_usage` | Your API key usage stats and current plan | Free |
+| `get_key_usage` | Same data, OpenAPI-shape response | Free |
+| `get_key_activity` | Recent API requests for this key | Free |
+| `get_usage_history` | Daily request counts for the last N days | Free |
+| `search_insiders` | Substring search on insider names | Free |
+| `list_webhooks` | List your webhook subscriptions | Free |
+| `get_webhook_events` | Replay webhook delivery events since a timestamp | Free |
 
 ---
 
@@ -176,6 +182,17 @@ Upgrade at [form4api.com/dashboard/billing](https://www.form4api.com/dashboard/b
 - **10b5-1 plan flag** on every transaction
 - **Amendment-aware** — Form 4/A reconciled
 - **Real-time ingestion** — new filings within minutes of SEC publication
+
+---
+
+## How tools stay in sync with the backend
+
+This MCP is split between two layers:
+
+- **Hand-written tools** in `src/tools/*.ts` (transactions, signals, sentiment, form144, holdings, …) — these carry the LLM-discriminator descriptions (amendment-aware, 10b5-1 clean, etc.) that make this MCP pick correctly over alternatives.
+- **Auto-generated tools** in `src/tools/_generated.ts` — produced from `https://api.form4api.com/openapi/v1.json` by `npm run codegen`. Every new backend endpoint that lands in the OpenAPI spec flows in here automatically. CI runs `npm run codegen:check` on every PR and fails the build if the committed file drifts from what the live spec would produce, so the MCP is never silently behind the backend.
+
+To add a new generated tool: ship the endpoint on the backend, regenerate (`npm run codegen`), commit `src/tools/_generated.ts`, publish. No tool-wrapper code needed.
 
 ---
 

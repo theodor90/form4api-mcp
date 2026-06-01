@@ -13,12 +13,13 @@ import { getManagersSchema, getManagers } from './tools/managers.js'
 import { getSentimentSchema, getSentiment } from './tools/sentiment.js'
 import { getInsiderCareerSummarySchema, getInsiderCareerSummary } from './tools/insiderSummary.js'
 import { checkUsageSchema, checkUsage } from './tools/usage.js'
+import { GENERATED_TOOLS } from './tools/_generated.js'
 
 const client = new Form4ApiClient()
 
 const server = new McpServer({
   name: 'form4api',
-  version: '1.1.0',
+  version: '1.2.0',
 })
 
 function wrapResult(data: unknown): { content: Array<{ type: 'text'; text: string }> } {
@@ -216,6 +217,28 @@ server.tool(
     }
   },
 )
+
+// Auto-generated tools from /openapi/v1.json. Anything in HANDLED_BY_HANDWRITTEN
+// (codegen/generate.mjs) is already exposed above with a richer description;
+// what's left here is the long tail (search_insiders, key activity, usage
+// history, list_webhooks, get_webhook_events) — operations the spec describes
+// well enough on its own. New backend endpoints flow into this loop on
+// the next codegen run without a manual src/tools/*.ts file.
+// PLAN_MCP_DEFENSE Phase 4 (2026-06-01).
+for (const tool of GENERATED_TOOLS) {
+  server.tool(
+    tool.name,
+    tool.description,
+    tool.schema,
+    async (input) => {
+      try {
+        return wrapResult(await tool.handler(client, input as Record<string, unknown>))
+      } catch (err) {
+        return wrapError(err)
+      }
+    },
+  )
+}
 
 async function main() {
   const transport = new StdioServerTransport()

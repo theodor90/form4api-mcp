@@ -55,7 +55,7 @@ export class Form4ApiClient {
     const res = await fetch(url.toString(), {
       headers: {
         'X-Api-Key': this.apiKey,
-        'User-Agent': 'form4api-mcp/1.1.0',
+        'User-Agent': 'form4api-mcp/1.2.0',
       },
     })
 
