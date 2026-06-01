@@ -1,7 +1,7 @@
 /**
  * MCP protocol test — spawns the server and verifies:
  *  1. initialize handshake
- *  2. tools/list returns all 14 tools with correct names
+ *  2. tools/list returns all 19 tools with correct names
  *  3. (optional) live tool call if FORM4API_KEY is set
  */
 import { spawn } from 'node:child_process'
@@ -28,6 +28,12 @@ const EXPECTED_TOOLS = [
   'get_sentiment',
   'get_insider_career_summary',
   'check_usage',
+  // Auto-generated from OpenAPI (PLAN_MCP_DEFENSE Phase 4, 2026-06-01)
+  'search_insiders',
+  'get_key_activity',
+  'get_usage_history',
+  'list_webhooks',
+  'get_webhook_events',
 ]
 
 let passed = 0
@@ -95,18 +101,18 @@ async function runTest() {
       clientInfo: { name: 'test-client', version: '1.0.0' },
     })
     assert(initRes.result?.serverInfo?.name === 'form4api', 'serverInfo.name === "form4api"')
-    assert(initRes.result?.serverInfo?.version === '1.1.0', 'serverInfo.version === "1.1.0"')
+    assert(initRes.result?.serverInfo?.version === '1.2.0', 'serverInfo.version === "1.2.0"')
     assert(!initRes.error, 'no error in initialize response')
 
     // Send initialized notification (no response expected)
     server.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n')
 
     // ── Test 2: tools/list ────────────────────────────────────────────────
-    console.log('\n[2] tools/list — 14 tools registered')
+    console.log('\n[2] tools/list — 19 tools registered')
     const listRes = await send('tools/list', {})
     const toolNames = (listRes.result?.tools ?? []).map(t => t.name)
     assert(!listRes.error, 'no error in tools/list response')
-    assert(toolNames.length === 14, `14 tools returned (got ${toolNames.length})`)
+    assert(toolNames.length === 19, `19 tools returned (got ${toolNames.length})`)
     for (const name of EXPECTED_TOOLS) {
       assert(toolNames.includes(name), `tool "${name}" present`)
     }
