@@ -91,3 +91,17 @@ export interface ApiError {
   code: string
   message: string
 }
+
+// ----- Tier A additions (2026-06-01, PLAN_MCP_DEFENSE Phase 1) -----
+//
+// Response shapes for these endpoints are not currently strict-typed in the
+// backend OpenAPI spec (server returns inline objects). The MCP passes the
+// JSON through to the LLM, so we use permissive `Record<string, unknown>`
+// here rather than ossifying field names that might evolve. The codegen in
+// Phase 4 will pull strict types from the spec once the backend tightens it.
+
+export type Form144Filing = Record<string, unknown>
+export type Holding = Record<string, unknown>
+export type Manager = Record<string, unknown>
+export type SentimentScore = Record<string, unknown>
+export type InsiderCareerSummary = Record<string, unknown>
