@@ -65,6 +65,21 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
       }),
   },
   {
+    name: 'list_companies',
+    operationId: 'ListCompanies',
+    method: 'GET',
+    path: '/v1/companies',
+    description: "List companies, optionally sorted by name or totalFilings",
+    schema: {
+  sort: z.string().optional(),
+  limit: z.number().int().optional(),
+    },
+    handler: async (client, input) => client.get<unknown>('/v1/companies', {
+        sort: input.sort as never,
+        limit: input.limit as never,
+      }),
+  },
+  {
     name: 'list_webhooks',
     operationId: 'ListWebhooks',
     method: 'GET',

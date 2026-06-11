@@ -58,19 +58,20 @@ FORM4API_KEY=fapi_live_your_key npx form4api-mcp
 
 ---
 
-## Available tools (19)
+## Available tools (20)
 
 ### Form 4 insider trading
 
 | Tool | Description | Plan |
 |---|---|---|
-| `get_transactions` | Search insider transactions — filter by ticker, insider, transaction code, date range, exclude 10b5-1 plan trades | Free |
+| `get_transactions` | Search insider transactions — filter by ticker, insider, date range, transaction codes or whole categories (`exclude_category=derivatives`), 10b5-1 plan trades, or use `significant=true` for real discretionary buys/sells only. Pro adds trade-size screening (`min_value`, `min_shares`) | Free |
 | `get_recent_filings` | Most recent Form 4 filings, optionally filtered by ticker | Free |
 | `get_filing` | Single filing by accession number | Free |
 | `get_insider_profile` | Insider profile — name, title, director/officer/10pct owner flags | Free |
 | `get_insider_transactions` | All transactions for a specific insider (by CIK) | Free |
 | `get_company_overview` | Company profile — name, CIK, SIC sector, state, website, filing counts | Free |
 | `get_company_insiders` | All insiders who have filed Form 4s for a company | Free |
+| `list_companies` | List companies, sorted by name or filing count | Free |
 | `get_insider_career_summary` | Aggregate career rollup: total bought/sold, top companies, 10b5-1 split, return averages | Pro |
 
 ### Signals + sentiment
@@ -177,7 +178,7 @@ Upgrade at [form4api.com/dashboard/billing](https://www.form4api.com/dashboard/b
 - **1M+ Form 4 transactions** from SEC EDGAR
 - **475K+ filings** across all reporting companies
 - **23K+ Form 144** notice-of-proposed-sale filings (Business+)
-- **3.45M Form 13F-HR holdings** across 11K+ filings, $72T+ AUM (Business+)
+- **16M+ Form 13F-HR holdings** across 44K+ filings, $72T+ AUM (Business+)
 - **2.5+ years of history** (since 2023-10)
 - **10b5-1 plan flag** on every transaction
 - **Amendment-aware** — Form 4/A reconciled
