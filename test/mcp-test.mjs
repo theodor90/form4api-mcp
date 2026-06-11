@@ -1,7 +1,7 @@
 /**
  * MCP protocol test — spawns the server and verifies:
  *  1. initialize handshake
- *  2. tools/list returns all 19 tools with correct names
+ *  2. tools/list returns all 20 tools with correct names
  *  3. (optional) live tool call if FORM4API_KEY is set
  */
 import { spawn } from 'node:child_process'
@@ -34,6 +34,8 @@ const EXPECTED_TOOLS = [
   'get_usage_history',
   'list_webhooks',
   'get_webhook_events',
+  // Auto-generated after the backend list endpoint shipped (2026-06-03 SEO arc)
+  'list_companies',
 ]
 
 let passed = 0
@@ -101,18 +103,18 @@ async function runTest() {
       clientInfo: { name: 'test-client', version: '1.0.0' },
     })
     assert(initRes.result?.serverInfo?.name === 'form4api', 'serverInfo.name === "form4api"')
-    assert(initRes.result?.serverInfo?.version === '1.2.1', 'serverInfo.version === "1.2.1"')
+    assert(initRes.result?.serverInfo?.version === '1.3.0', 'serverInfo.version === "1.3.0"')
     assert(!initRes.error, 'no error in initialize response')
 
     // Send initialized notification (no response expected)
     server.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n')
 
     // ── Test 2: tools/list ────────────────────────────────────────────────
-    console.log('\n[2] tools/list — 19 tools registered')
+    console.log('\n[2] tools/list — 20 tools registered')
     const listRes = await send('tools/list', {})
     const toolNames = (listRes.result?.tools ?? []).map(t => t.name)
     assert(!listRes.error, 'no error in tools/list response')
-    assert(toolNames.length === 19, `19 tools returned (got ${toolNames.length})`)
+    assert(toolNames.length === 20, `20 tools returned (got ${toolNames.length})`)
     for (const name of EXPECTED_TOOLS) {
       assert(toolNames.includes(name), `tool "${name}" present`)
     }
