@@ -26,6 +26,36 @@ export interface GeneratedTool {
 
 export const GENERATED_TOOLS: GeneratedTool[] = [
   {
+    name: 'get_insider_leaderboard',
+    operationId: 'GetInsiderLeaderboard',
+    method: 'GET',
+    path: '/v1/insiders/leaderboard',
+    description: "Ranked leaderboard of insiders by buy track-record (Business plan+). Returns the top insiders ranked by historical buy performance.\nScores use absolute return (NOT market-adjusted) — a hit is a scored buy\nwith a positive 3m (or 6m) return anchored at the filing-date close.\nOnly discretionary open-market buys (P-code, not 10b5-1, not derivative)\nwith a matured return are counted. Insiders with fewer than min_trades\n(floor 5) scored buys are excluded. Results are cached for 1 hour.\nParameters: horizon=3m|6m (default 3m), order=hit_rate|avg_return (default hit_rate),\nmin_trades (default 5, minimum 5), limit (default 25, max 100).",
+    schema: {
+  horizon: z.string().optional(),
+  order: z.string().optional(),
+  min_trades: z.number().int().optional(),
+  limit: z.number().int().optional(),
+    },
+    handler: async (client, input) => client.get<unknown>('/v1/insiders/leaderboard', {
+        horizon: input.horizon as never,
+        order: input.order as never,
+        min_trades: input.min_trades as never,
+        limit: input.limit as never,
+      }),
+  },
+  {
+    name: 'get_insider_scorecard',
+    operationId: 'GetInsiderScorecard',
+    method: 'GET',
+    path: '/v1/insiders/{cik}/scorecard',
+    description: "Get insider buy track-record scorecard (Pro plan+). Returns the historical hit rate and average return of an insider's discretionary\nopen-market buys (TransactionCode=P, excluding 10b5-1 plans and derivatives).\nScores use absolute return (NOT market-adjusted) anchored at the filing-date close.\nA 'hit' is a scored buy whose 3m (or 6m) return is positive.\nScore fields are null when the insider has fewer than 5 matured scored buys\n(sampleSufficient=false), preventing misleading statistics from small samples.",
+    schema: {
+  cik: z.string(),
+    },
+    handler: async (client, input) => client.get<unknown>(`/v1/insiders/\${encodeURIComponent(String(input.cik))}/scorecard`),
+  },
+  {
     name: 'get_key_activity',
     operationId: 'GetKeyActivity',
     method: 'GET',
