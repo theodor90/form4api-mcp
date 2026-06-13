@@ -58,7 +58,7 @@ FORM4API_KEY=fapi_live_your_key npx form4api-mcp
 
 ---
 
-## Available tools (20)
+## Available tools (22)
 
 ### Form 4 insider trading
 
@@ -73,6 +73,8 @@ FORM4API_KEY=fapi_live_your_key npx form4api-mcp
 | `get_company_insiders` | All insiders who have filed Form 4s for a company | Free |
 | `list_companies` | List companies, sorted by name or filing count | Free |
 | `get_insider_career_summary` | Aggregate career rollup: total bought/sold, top companies, 10b5-1 split, return averages | Pro |
+| `get_insider_scorecard` | Buy track-record scorecard for an insider (CIK) — hit rate and avg/median return on discretionary open-market buys; null when fewer than 5 matured samples | Pro |
+| `get_insider_leaderboard` | Top insiders ranked by `hit_rate` or `avg_return`; filter by `horizon` (3m/6m), `min_trades`, and `limit` | Business |
 
 ### Signals + sentiment
 
@@ -162,8 +164,8 @@ The MCP wraps the same backend as all of the above — every fact your LLM cites
 | `get_transactions`, `get_recent_filings`, `get_filing` | ✓ | ✓ | ✓ |
 | `get_insider_profile`, `get_insider_transactions` | ✓ | ✓ | ✓ |
 | `get_company_overview`, `get_company_insiders` | ✓ | ✓ | ✓ |
-| `get_insider_career_summary` | — | ✓ | ✓ |
-| `get_signals`, `get_sentiment` | — | — | ✓ |
+| `get_insider_career_summary`, `get_insider_scorecard` | — | ✓ | ✓ |
+| `get_insider_leaderboard`, `get_signals`, `get_sentiment` | — | — | ✓ |
 | `get_form144`, `get_holdings`, `get_managers` | — | — | ✓ |
 | Requests/day | 500 | 50,000 | 250,000 |
 
