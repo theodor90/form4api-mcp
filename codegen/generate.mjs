@@ -32,6 +32,12 @@ const SKIP_OPERATIONS = new Set([
   'CreateApiKey',
   'CreateWebhook',
   'DeleteWebhook',
+  // Bulk CSV exports — stream up to 100k rows of raw RFC 4180 CSV and are
+  // Business+ gated. Poor fit for an LLM tool (token blast / 402 for most
+  // callers / client.get expects JSON). Agents should use get_transactions /
+  // get_form144 with pagination instead.
+  'ExportTransactions',
+  'ExportForm144',
 ])
 
 // Operations that have a hand-written tool wrapper in src/tools/*.ts. The

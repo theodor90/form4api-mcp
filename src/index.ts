@@ -19,7 +19,7 @@ const client = new Form4ApiClient()
 
 const server = new McpServer({
   name: 'form4api',
-  version: '1.4.0',
+  version: '1.5.0',
 })
 
 function wrapResult(data: unknown): { content: Array<{ type: 'text'; text: string }> } {

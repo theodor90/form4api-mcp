@@ -69,6 +69,17 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
       }),
   },
   {
+    name: 'get_public_stats',
+    operationId: 'GetPublicStats',
+    method: 'GET',
+    path: '/v1/stats',
+    description: "Public corpus statistics (cached ~12h).",
+    schema: {
+
+    },
+    handler: async (client, input) => client.get<unknown>('/v1/stats'),
+  },
+  {
     name: 'get_usage_history',
     operationId: 'GetUsageHistory',
     method: 'GET',
