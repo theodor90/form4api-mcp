@@ -1,6 +1,6 @@
 {
   "name": "form4api-mcp",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "MCP server for Form4API — SEC Form 4 insider trading data. Lets Claude / Cursor / Windsurf / Zed query real-time US insider trading data via natural language.",
   "keywords": [
     "mcp",
