@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Form4ApiClient, Form4ApiError } from './client.js'
@@ -17,9 +19,16 @@ import { GENERATED_TOOLS } from './tools/_generated.js'
 
 const client = new Form4ApiClient()
 
+// Single source of truth for the version: read it from package.json at startup
+// so serverInfo can never drift from the published package version again.
+// __dirname is dist/ at runtime (CommonJS output); ../package.json is the root.
+const { version } = JSON.parse(
+  readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
+) as { version: string }
+
 const server = new McpServer({
   name: 'form4api',
-  version: '1.4.0',
+  version,
 })
 
 function wrapResult(data: unknown): { content: Array<{ type: 'text'; text: string }> } {
