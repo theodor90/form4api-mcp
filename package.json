@@ -1,6 +1,6 @@
 {
   "name": "form4api-mcp",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "MCP server for Form4API — SEC Form 4 insider trading data. Lets Claude / Cursor / Windsurf / Zed query real-time US insider trading data via natural language.",
   "keywords": [
     "mcp",
@@ -17,7 +17,15 @@
     "form-4",
     "finance",
     "stocks",
-    "ai"
+    "ai",
+    "ai-tools",
+    "sec-edgar",
+    "form-144",
+    "13f",
+    "13f-hr",
+    "webhooks",
+    "financial-data",
+    "fintech"
   ],
   "license": "MIT",
   "homepage": "https://www.form4api.com",
