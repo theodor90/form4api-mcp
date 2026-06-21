@@ -1,0 +1,22 @@
+# Smithery configuration — https://smithery.ai/docs/build/project-config/smithery-yaml
+# Lets Smithery list + run form4api-mcp. Stdio server; needs a Form4API key
+# (free tier at https://www.form4api.com/dashboard) passed as FORM4API_KEY.
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - form4apiKey
+    properties:
+      form4apiKey:
+        type: string
+        title: Form4API API Key
+        description: Your Form4API key. Free tier (no card) at https://www.form4api.com/dashboard
+  commandFunction: |-
+    (config) => ({
+      command: 'node',
+      args: ['dist/index.js'],
+      env: { FORM4API_KEY: config.form4apiKey }
+    })
+  exampleConfig:
+    form4apiKey: fapi_live_your_key_here
