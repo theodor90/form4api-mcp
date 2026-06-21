@@ -6,11 +6,15 @@
  */
 import { spawn } from 'node:child_process'
 import { createInterface } from 'node:readline'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const serverPath = path.resolve(__dirname, '../dist/index.js')
+// Read the version from package.json (the server does the same) so the assertion
+// never drifts on a bump.
+const PKG_VERSION = JSON.parse(readFileSync(path.resolve(__dirname, '../package.json'), 'utf8')).version
 
 const EXPECTED_TOOLS = [
   'get_transactions',
@@ -108,7 +112,7 @@ async function runTest() {
       clientInfo: { name: 'test-client', version: '1.0.0' },
     })
     assert(initRes.result?.serverInfo?.name === 'form4api', 'serverInfo.name === "form4api"')
-    assert(initRes.result?.serverInfo?.version === '1.5.0', 'serverInfo.version === "1.5.0"')
+    assert(initRes.result?.serverInfo?.version === PKG_VERSION, `serverInfo.version === "${PKG_VERSION}"`)
     assert(!initRes.error, 'no error in initialize response')
 
     // Send initialized notification (no response expected)
