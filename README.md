@@ -188,6 +188,19 @@ Upgrade at [form4api.com/dashboard/billing](https://www.form4api.com/dashboard/b
 
 ---
 
+## Install as a Claude Desktop Extension (DXT)
+
+A `manifest.json` is included at the repo root for one-click install via the [Desktop Extensions (DXT)](https://www.anthropic.com/news/desktop-extensions) format. Once Claude Desktop supports `.dxt` files natively, pack and install with:
+
+```bash
+npx @anthropic-ai/dxt pack
+# Produces form4api-mcp.dxt — open it in Claude Desktop to install
+```
+
+Until then, use the standard `claude_desktop_config.json` method described in Quick install above.
+
+---
+
 ## How tools stay in sync with the backend
 
 This MCP is split between two layers:
