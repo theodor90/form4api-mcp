@@ -8,3 +8,4 @@ dist/
 # Claude Code session artifacts
 .claude/
 .mcp.json
+*.dxt
