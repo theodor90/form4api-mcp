@@ -102,18 +102,17 @@ export async function researchCompany(
     ? (signals![0].signalType === 'ClusterBuy' ? 'ClusterBuy' : 'ClusterSell')
     : null
 
-  // Extract sentiment score from the opaque SentimentScore record if present
-  // The backend returns an array of monthly scores; the most recent score field is `score`
+  // Extract the most recent monthly sentiment score. The endpoint returns
+  // { ticker, companyName, monthly: [{ period: "YYYY-MM", score, ... }] }
+  // ordered ascending by period — pick the entry with the max period defensively.
   let sentimentScore: number | null = null
   if (sentiment !== null) {
-    const scores = sentiment as Record<string, unknown>
-    // Backend returns { data: [{ score, month, ... }] } or [{ score, ... }]
-    if (Array.isArray(scores['data']) && (scores['data'] as unknown[]).length > 0) {
-      const first = (scores['data'] as Record<string, unknown>[])[0]
-      if (typeof first['score'] === 'number') sentimentScore = first['score']
-    } else if (Array.isArray(sentiment) && (sentiment as unknown[]).length > 0) {
-      const first = (sentiment as Record<string, unknown>[])[0]
-      if (typeof first['score'] === 'number') sentimentScore = first['score']
+    const s = sentiment as { monthly?: Array<{ period?: string; score?: number }> }
+    if (Array.isArray(s.monthly) && s.monthly.length > 0) {
+      const latest = s.monthly.reduce((a, b) =>
+        (String(b.period ?? '') > String(a.period ?? '') ? b : a),
+      )
+      if (typeof latest.score === 'number') sentimentScore = latest.score
     }
   }
 
