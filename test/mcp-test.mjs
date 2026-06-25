@@ -45,6 +45,8 @@ const EXPECTED_TOOLS = [
   'get_insider_leaderboard',
   // Auto-generated after the public /v1/stats endpoint shipped (2026-06-19)
   'get_public_stats',
+  // Flagship bundled research tool (2026-06-25)
+  'research_company',
 ]
 
 let passed = 0
@@ -119,11 +121,11 @@ async function runTest() {
     server.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n')
 
     // ── Test 2: tools/list ────────────────────────────────────────────────
-    console.log('\n[2] tools/list — 23 tools registered')
+    console.log('\n[2] tools/list — 24 tools registered')
     const listRes = await send('tools/list', {})
     const toolNames = (listRes.result?.tools ?? []).map(t => t.name)
     assert(!listRes.error, 'no error in tools/list response')
-    assert(toolNames.length === 23, `23 tools returned (got ${toolNames.length})`)
+    assert(toolNames.length === 24, `24 tools returned (got ${toolNames.length})`)
     for (const name of EXPECTED_TOOLS) {
       assert(toolNames.includes(name), `tool "${name}" present`)
     }
