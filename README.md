@@ -33,7 +33,7 @@ Go to [www.form4api.com](https://www.form4api.com) → Sign in → Dashboard. Fr
       "command": "npx",
       "args": ["-y", "form4api-mcp"],
       "env": {
-        "FORM4API_KEY": "fapi_live_your_key_here"
+        "FORM4API_KEY": "YOUR_API_KEY"
       }
     }
   }
@@ -53,7 +53,7 @@ claude mcp add form4api -- npx -y form4api-mcp
 ### 3. Or run directly
 
 ```bash
-FORM4API_KEY=fapi_live_your_key npx form4api-mcp
+FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 ```
 
 ---

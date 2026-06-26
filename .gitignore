@@ -9,3 +9,6 @@ dist/
 .claude/
 .mcp.json
 *.dxt
+mcp-publisher
+mcp-publisher.exe
+mcp-publisher_*.tar.gz

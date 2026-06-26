@@ -2,7 +2,7 @@
   "dxt_version": "0.1",
   "name": "form4api-mcp",
   "display_name": "Form4API — SEC Insider Trading",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Production-grade SEC Form 4 insider trading data for Claude Desktop. Amendment-aware, 10b5-1 clean, with Form 144 intent-to-sell and institutional 13F-HR overlay. One MCP that replaces multiple scrapers.",
   "author": {
     "name": "Theodor Nielsen",

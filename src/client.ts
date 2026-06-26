@@ -1,4 +1,16 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 const BASE_URL = process.env.FORM4API_BASE_URL ?? 'https://api.form4api.com'
+
+// Single source of truth for the version — read from package.json at load so
+// the User-Agent can never drift from the published version. This UA is how the
+// backend attributes traffic to the MCP channel (User-Agent: form4api-mcp/x.y.z),
+// so it must stay accurate. Mirrors the serverInfo version read in index.ts.
+// __dirname is dist/ at runtime (CommonJS output); ../package.json is the root.
+const { version: PKG_VERSION } = JSON.parse(
+  readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
+) as { version: string }
 
 // Structured payload the MCP returns when an upstream call needs a plan
 // upgrade. The LLM router can read the JSON shape and surface the upgrade
@@ -33,8 +45,11 @@ export class Form4ApiClient {
     const key = process.env.FORM4API_KEY
     if (!key) {
       throw new Error(
-        'FORM4API_KEY environment variable is not set.\n' +
-        'Set it before running: FORM4API_KEY=fapi_live_your_key npx form4api-mcp',
+        'No Form4API key found (FORM4API_KEY is not set).\n' +
+        'Get a free key — 500 requests/day, no credit card — at:\n' +
+        '  https://www.form4api.com/dashboard\n' +
+        'Then add it to your MCP client config:  "env": { "FORM4API_KEY": "your-key" }\n' +
+        'or run directly:  FORM4API_KEY=your-key npx form4api-mcp',
       )
     }
     this.apiKey = key
@@ -55,7 +70,7 @@ export class Form4ApiClient {
     const res = await fetch(url.toString(), {
       headers: {
         'X-Api-Key': this.apiKey,
-        'User-Agent': 'form4api-mcp/1.4.0',
+        'User-Agent': `form4api-mcp/${PKG_VERSION}`,
       },
     })
 
@@ -101,7 +116,8 @@ export class Form4ApiClient {
 
       if (res.status === 401) {
         throw new Form4ApiError(
-          'Invalid or missing API key. Check your FORM4API_KEY environment variable.',
+          'Invalid API key. Check FORM4API_KEY in your MCP client config, or get a ' +
+          'free key (500 requests/day, no card) at https://www.form4api.com/dashboard',
           401,
           'UNAUTHORIZED',
         )

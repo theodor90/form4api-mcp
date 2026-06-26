@@ -181,7 +181,7 @@ async function runTest() {
       }
     } else {
       console.log('\n[4] Skipping live API tests (no real FORM4API_KEY set)')
-      console.log('     Run with: FORM4API_KEY=fapi_live_xxx node test/mcp-test.mjs')
+      console.log('     Run with: FORM4API_KEY=YOUR_API_KEY node test/mcp-test.mjs')
     }
 
   } catch (err) {
