@@ -15,6 +15,7 @@ import { getManagersSchema, getManagers } from './tools/managers.js'
 import { getSentimentSchema, getSentiment } from './tools/sentiment.js'
 import { getInsiderCareerSummarySchema, getInsiderCareerSummary } from './tools/insiderSummary.js'
 import { checkUsageSchema, checkUsage } from './tools/usage.js'
+import { verifySetupSchema, verifySetup } from './tools/verify-setup.js'
 import { researchCompanySchema, researchCompany } from './tools/research.js'
 import { GENERATED_TOOLS } from './tools/_generated.js'
 
@@ -27,10 +28,24 @@ const { version } = JSON.parse(
   readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
 ) as { version: string }
 
-const server = new McpServer({
-  name: 'form4api',
-  version,
-})
+const SERVER_INSTRUCTIONS = `Form4API insider trading data: amendment-aware Form 4 transactions, 10b5-1 plan flags, Form 144 intent-to-sell, institutional 13F-HR overlay.
+
+Start with \`research_company\` to get bundled insider context for any ticker. If something fails, run \`verify_setup\` first. Try \`get_public_stats\` without a key to preview the data.
+
+Try these prompts:
+• "What insider trades happened at NVDA in the last 30 days, excluding 10b5-1 plans?"
+• "Show me cluster buy signals from this week — multiple insiders at the same company trading in the same direction."
+• "Call get_public_stats to show me our current data coverage — no API key required."`
+
+const server = new McpServer(
+  {
+    name: 'form4api',
+    version,
+  },
+  {
+    instructions: SERVER_INSTRUCTIONS,
+  },
+)
 
 function wrapResult(data: unknown): { content: Array<{ type: 'text'; text: string }> } {
   return {
@@ -241,6 +256,20 @@ server.tool(
   async (_input) => {
     try {
       return wrapResult(await checkUsage(client, {}))
+    } catch (err) {
+      return wrapError(err)
+    }
+  },
+)
+
+server.tool(
+  'verify_setup',
+  'validates your Form4API key + connectivity and returns a green check or exact fix steps; run this first if other tools fail',
+  verifySetupSchema.shape,
+  READ_ONLY,
+  async () => {
+    try {
+      return wrapResult(await verifySetup({}))
     } catch (err) {
       return wrapError(err)
     }
