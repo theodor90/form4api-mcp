@@ -38,6 +38,11 @@ const SKIP_OPERATIONS = new Set([
   // get_form144 with pagination instead.
   'ExportTransactions',
   'ExportForm144',
+  // Featured customer testimonials — a marketing/social-proof endpoint for the
+  // website, not insider-research data. Keyless, but no value as an LLM tool;
+  // keep it out of the MCP surface. (Leaked in via the OpenAPI spec when the
+  // testimonial feature shipped, 2026-06-28.)
+  'GetFeaturedTestimonials',
 ])
 
 // Operations that have a hand-written tool wrapper in src/tools/*.ts. The

@@ -48,7 +48,84 @@ claude mcp add form4api -- npx -y form4api-mcp
 ```
 …then set `FORM4API_KEY` in your shell or in `~/.claude/mcp.json`.
 
-**Cursor / VS Code / Codex CLI / Windsurf** — same generic stdio config (`command: "npx"`, `args: ["-y", "form4api-mcp"]`, `env.FORM4API_KEY`).
+**Cursor** — edit `~/.cursor/mcp.json` (user-level) or `.cursor/mcp.json` (workspace-level):
+
+```json
+{
+  "mcpServers": {
+    "form4api": {
+      "command": "npx",
+      "args": ["-y", "form4api-mcp"],
+      "env": {
+        "FORM4API_KEY": "YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+Restart Cursor. The tools appear automatically.
+
+**Windsurf** — edit `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "form4api": {
+      "command": "npx",
+      "args": ["-y", "form4api-mcp"],
+      "env": {
+        "FORM4API_KEY": "YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+Restart Windsurf. The tools appear automatically.
+
+**VS Code** — edit `.vscode/mcp.json` (workspace-level). Note: VS Code uses the `servers` key (not `mcpServers`):
+
+```json
+{
+  "servers": {
+    "form4api": {
+      "command": "npx",
+      "args": ["-y", "form4api-mcp"],
+      "env": {
+        "FORM4API_KEY": "YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+Restart VS Code. The tools appear automatically.
+
+**Codex CLI** — config is TOML at `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.form4api]
+command = "npx"
+args = ["-y", "form4api-mcp"]
+env = { FORM4API_KEY = "YOUR_API_KEY" }
+```
+
+### Verify it works
+
+Ask your LLM to run the `verify_setup` tool — it confirms your API key is valid and the MCP server is reachable, or returns the exact fix steps.
+
+Example: *"Run the verify_setup tool to confirm the MCP is configured correctly."*
+
+### Try before you commit a key
+
+`get_public_stats` is a **keyless tool** — it works with no `FORM4API_KEY` set. Try it first to preview live data coverage before signing up:
+
+```bash
+FORM4API_KEY="" npx form4api-mcp
+```
+
+Once you like what you see, sign up for a free key at [www.form4api.com](https://www.form4api.com) → set `FORM4API_KEY` → all tools unlock.
 
 ### 3. Or run directly
 
@@ -58,7 +135,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 
 ---
 
-## Available tools (23)
+## Available tools (25)
 
 ### Form 4 insider trading
 
@@ -102,6 +179,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | `search_insiders` | Substring search on insider names | Free |
 | `list_webhooks` | List your webhook subscriptions | Free |
 | `get_webhook_events` | Replay webhook delivery events since a timestamp | Free |
+| `verify_setup` | Verify the MCP is configured correctly — confirms API key is valid and server is reachable | Free |
 
 ---
 
@@ -217,5 +295,6 @@ To add a new generated tool: ship the endpoint on the backend, regenerate (`npm 
 - [Form4API](https://www.form4api.com) — API homepage
 - [Documentation](https://www.form4api.com/docs) — Full REST API reference
 - [Dashboard](https://www.form4api.com/dashboard) — Manage your API key, view usage, configure webhooks
+- [Status](https://www.form4api.com/status) — live uptime, database, and ingestion-queue health
 - [npm](https://www.npmjs.com/package/form4api-mcp) — npm package
 - [mcp.so](https://mcp.so) — MCP server directory listing

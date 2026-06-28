@@ -32,6 +32,8 @@ const EXPECTED_TOOLS = [
   'get_sentiment',
   'get_insider_career_summary',
   'check_usage',
+  // Self-test / onboarding tool (v1.8.0, 2026-06-28)
+  'verify_setup',
   // Auto-generated from OpenAPI (PLAN_MCP_DEFENSE Phase 4, 2026-06-01)
   'search_insiders',
   'get_key_activity',
@@ -121,11 +123,11 @@ async function runTest() {
     server.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n')
 
     // ── Test 2: tools/list ────────────────────────────────────────────────
-    console.log('\n[2] tools/list — 24 tools registered')
+    console.log('\n[2] tools/list — 25 tools registered')
     const listRes = await send('tools/list', {})
     const toolNames = (listRes.result?.tools ?? []).map(t => t.name)
     assert(!listRes.error, 'no error in tools/list response')
-    assert(toolNames.length === 24, `24 tools returned (got ${toolNames.length})`)
+    assert(toolNames.length === 25, `25 tools returned (got ${toolNames.length})`)
     for (const name of EXPECTED_TOOLS) {
       assert(toolNames.includes(name), `tool "${name}" present`)
     }
