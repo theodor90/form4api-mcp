@@ -37,22 +37,22 @@ export class Form4ApiError extends Error {
   }
 }
 
+const NO_KEY_MESSAGE =
+  'No Form4API key found (FORM4API_KEY is not set).\n' +
+  'Get a free key — 500 requests/day, no credit card — at:\n' +
+  '  https://www.form4api.com/dashboard\n' +
+  'Then add it to your MCP client config:  "env": { "FORM4API_KEY": "your-key" }\n' +
+  'or run directly:  FORM4API_KEY=your-key npx form4api-mcp'
+
 export class Form4ApiClient {
-  private readonly apiKey: string
+  // Key is resolved lazily so the server starts (and keyless tools like
+  // get_public_stats / get_data_quality work) without FORM4API_KEY.
+  // Authenticated tools surface NO_KEY_MESSAGE on first use instead.
+  private readonly apiKey: string | null
   private readonly baseUrl: string
 
   constructor() {
-    const key = process.env.FORM4API_KEY
-    if (!key) {
-      throw new Error(
-        'No Form4API key found (FORM4API_KEY is not set).\n' +
-        'Get a free key — 500 requests/day, no credit card — at:\n' +
-        '  https://www.form4api.com/dashboard\n' +
-        'Then add it to your MCP client config:  "env": { "FORM4API_KEY": "your-key" }\n' +
-        'or run directly:  FORM4API_KEY=your-key npx form4api-mcp',
-      )
-    }
-    this.apiKey = key
+    this.apiKey = process.env.FORM4API_KEY ?? null
     this.baseUrl = BASE_URL
   }
 
@@ -67,12 +67,12 @@ export class Form4ApiClient {
       }
     }
 
-    const res = await fetch(url.toString(), {
-      headers: {
-        'X-Api-Key': this.apiKey,
-        'User-Agent': `form4api-mcp/${PKG_VERSION}`,
-      },
-    })
+    const headers: Record<string, string> = {
+      'User-Agent': `form4api-mcp/${PKG_VERSION}`,
+    }
+    if (this.apiKey) headers['X-Api-Key'] = this.apiKey
+
+    const res = await fetch(url.toString(), { headers })
 
     if (!res.ok) {
       let code: string | undefined
@@ -116,8 +116,10 @@ export class Form4ApiClient {
 
       if (res.status === 401) {
         throw new Form4ApiError(
-          'Invalid API key. Check FORM4API_KEY in your MCP client config, or get a ' +
-          'free key (500 requests/day, no card) at https://www.form4api.com/dashboard',
+          this.apiKey
+            ? 'Invalid API key. Check FORM4API_KEY in your MCP client config, or get a ' +
+              'free key (500 requests/day, no card) at https://www.form4api.com/dashboard'
+            : NO_KEY_MESSAGE,
           401,
           'UNAUTHORIZED',
         )

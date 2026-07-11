@@ -24,6 +24,18 @@ This ensures clients can always see what tools are available in a given version 
 
 ---
 
+## [1.9.1] — 2026-07-11
+
+### Fixed
+- **Server now starts without `FORM4API_KEY`** — the key check moved from client construction (which crashed the process on startup) to request time. Keyless tools (`get_public_stats`, `get_data_quality`) work immediately; authenticated tools return the get-a-free-key guidance on first use. Unblocks directory health checks (Glama) and true try-before-signup.
+
+### Added
+- `Dockerfile` + `.dockerignore` — multi-stage build, stdio entrypoint (`docker run -e FORM4API_KEY=... <image>`)
+
+**Tool count: 27** (no change)
+
+---
+
 ## [1.9.0] — 2026-07-11
 
 ### Added
