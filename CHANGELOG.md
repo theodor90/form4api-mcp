@@ -24,6 +24,20 @@ This ensures clients can always see what tools are available in a given version 
 
 ---
 
+## [1.9.0] — 2026-07-11
+
+### Added
+- **6 MCP prompts** (research recipes via `prompts/list` / `prompts/get`): `insider_monitor`, `cluster_buy_scan`, `form144_early_warning`, `exec_conviction_check`, `institutional_insider_overlap`, `post_selloff_buys` — each orchestrates the right tool sequence and handles plan gates honestly
+- `explain_signal` tool — why a signal fired: insiders and trades counted, exclusions, criteria (Business+) — via codegen sync
+- `get_data_quality` tool — public data-quality, freshness and coverage metrics (keyless-friendly) — via codegen sync
+
+### Changed
+- README: prompts section, tool-table additions, headline 25 → 27 tools + 6 prompts
+
+**Tool count: 27** (25 pre-existing + 2 new)
+
+---
+
 ## [1.8.0] — 2026-06-28
 
 ### Added
