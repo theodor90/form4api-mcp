@@ -18,6 +18,7 @@ import { checkUsageSchema, checkUsage } from './tools/usage.js'
 import { verifySetupSchema, verifySetup } from './tools/verify-setup.js'
 import { researchCompanySchema, researchCompany } from './tools/research.js'
 import { GENERATED_TOOLS } from './tools/_generated.js'
+import { RECIPE_PROMPTS } from './prompts/recipes.js'
 
 const client = new Form4ApiClient()
 
@@ -310,6 +311,20 @@ for (const tool of GENERATED_TOOLS) {
         return wrapError(err)
       }
     },
+  )
+}
+
+// Recipe prompts — MCP "prompts" capability. Each one is a canned
+// tool-orchestration template (which of the 27 tools to call, in what order,
+// how to read plan-gated failures) that a client can discover via
+// prompts/list and fetch via prompts/get. Defined in src/prompts/recipes.ts,
+// NOT generated from the OpenAPI spec — safe to hand-edit.
+for (const recipe of RECIPE_PROMPTS) {
+  server.prompt(
+    recipe.name,
+    recipe.description,
+    recipe.argsSchema,
+    (args) => recipe.handler(args as Record<string, string | undefined>),
   )
 }
 

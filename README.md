@@ -1,6 +1,6 @@
 # form4api-mcp
 
-> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay**
+> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay** — 27 tools + 6 ready-made research prompts
 
 [![npm version](https://badge.fury.io/js/form4api-mcp.svg)](https://www.npmjs.com/package/form4api-mcp)
 [![Available on mcp.so](https://img.shields.io/badge/mcp.so-form4api-blue)](https://mcp.so)
@@ -167,6 +167,8 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | `get_form144` | Notice-of-proposed-sale filings — early signal ~2 days before Form 4 sale lands | Business |
 | `get_holdings` | Institutional positions from Form 13F-HR (filter by ticker, CUSIP, manager, quarter, min value) | Business |
 | `get_managers` | Institutional manager index with latest AUM | Business |
+| `explain_signal` | Explain why a signal fired — the insiders and trades counted, exclusions, and criteria | Business |
+| `get_data_quality` | Public data-quality, freshness and coverage metrics | Free |
 
 ### Utility
 
@@ -180,6 +182,25 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | `list_webhooks` | List your webhook subscriptions | Free |
 | `get_webhook_events` | Replay webhook delivery events since a timestamp | Free |
 | `verify_setup` | Verify the MCP is configured correctly — confirms API key is valid and server is reachable | Free |
+
+---
+
+## Prompts (6)
+
+Beyond the 27 tools, this MCP ships 6 **prompts** — ready-made research recipes that a client can list (`prompts/list`) and load (`prompts/get`) so you don't have to hand-assemble the right tool sequence yourself. Each one tells the LLM exactly which SEC Form 4 / Form 144 / 13F-HR tools to call, in what order, and how to read plan-gated results.
+
+| Prompt | Args | What it does |
+|---|---|---|
+| `insider_monitor` | `ticker` | Recent SEC Form 4 insider activity for a ticker — transactions (10b5-1 flagged), cluster signals, sentiment — summarized as buy/sell conviction with post-trade-return context |
+| `cluster_buy_scan` | `days` (default 7) | Market-wide scan of recent cluster-buy signals, 10b5-1 excluded, ranked by conviction (insider count + $ value), each with a sentiment score |
+| `form144_early_warning` | `ticker` (optional) | Pending Form 144 notice-of-proposed-sale filings cross-referenced against recent Form 4 sells — flags discretionary (non-10b5-1) notices as the highest-signal early warnings, ~2 days ahead of the sale |
+| `exec_conviction_check` | `insider` (name or CIK) | An insider's career track record — total bought/sold, historical post-trade returns on discretionary buys, and whether their buying has historically beaten their scheduled 10b5-1 selling |
+| `institutional_insider_overlap` | `ticker` | Combines 13F-HR institutional holders with recent insider transactions to spot where smart money and insiders agree or diverge |
+| `post_selloff_buys` | `min_return` (default 0.05) | Screens insider buys with post-trade-return filters to surface historically-successful dip-buying patterns |
+
+These map to the recipe workflows scraping-based Form 4 MCPs don't offer — each one leans on data this MCP alone exposes (10b5-1 flags, Form 144, 13F-HR join, per-insider return scoring). Plan requirements are honored honestly: prompts that touch Business-plan tools (`get_signals`, `get_sentiment`, `get_form144`, `get_holdings`, `get_managers`) or Pro-plan tools (`get_insider_career_summary`, `get_insider_scorecard`) instruct the LLM to surface the structured `upgrade_required` response rather than silently failing.
+
+In Claude Desktop, prompts surface as a `/` slash-command picker; in Claude Code or other MCP clients, ask the assistant to "use the insider_monitor prompt for NVDA" (or similar) and it will fetch and follow the recipe.
 
 ---
 
@@ -287,6 +308,8 @@ This MCP is split between two layers:
 - **Auto-generated tools** in `src/tools/_generated.ts` — produced from `https://api.form4api.com/openapi/v1.json` by `npm run codegen`. Every new backend endpoint that lands in the OpenAPI spec flows in here automatically. CI runs `npm run codegen:check` on every PR and fails the build if the committed file drifts from what the live spec would produce, so the MCP is never silently behind the backend.
 
 To add a new generated tool: ship the endpoint on the backend, regenerate (`npm run codegen`), commit `src/tools/_generated.ts`, publish. No tool-wrapper code needed.
+
+The 6 recipe **prompts** live in `src/prompts/recipes.ts` — also hand-written, not generated. They add no new backend surface area; each one is a client-side template that tells the LLM which existing tools to call and in what order.
 
 ---
 

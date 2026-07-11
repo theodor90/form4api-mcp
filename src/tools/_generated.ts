@@ -26,6 +26,31 @@ export interface GeneratedTool {
 
 export const GENERATED_TOOLS: GeneratedTool[] = [
   {
+    name: 'explain_signal',
+    operationId: 'ExplainSignal',
+    method: 'GET',
+    path: '/v1/signals/{ticker}/explain',
+    description: "Explain why a signal fired: the insiders and trades counted, what was excluded, and the criteria (Business plan+)",
+    schema: {
+  ticker: z.string(),
+  date: z.string().optional(),
+    },
+    handler: async (client, input) => client.get<unknown>(`/v1/signals/\${encodeURIComponent(String(input.ticker))}/explain`, {
+        date: input.date as never,
+      }),
+  },
+  {
+    name: 'get_data_quality',
+    operationId: 'GetDataQuality',
+    method: 'GET',
+    path: '/v1/data-quality',
+    description: "Public data-quality, freshness and coverage metrics",
+    schema: {
+
+    },
+    handler: async (client, input) => client.get<unknown>('/v1/data-quality'),
+  },
+  {
     name: 'get_insider_leaderboard',
     operationId: 'GetInsiderLeaderboard',
     method: 'GET',
@@ -49,7 +74,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetInsiderScorecard',
     method: 'GET',
     path: '/v1/insiders/{cik}/scorecard',
-    description: "Get insider buy track-record scorecard (Pro plan+). Returns the historical hit rate and average return of an insider's discretionary\nopen-market buys (TransactionCode=P, excluding 10b5-1 plans and derivatives).\nScores use absolute return (NOT market-adjusted) anchored at the filing-date close.\nA 'hit' is a scored buy whose 3m (or 6m) return is positive.\nScore fields are null when the insider has fewer than 5 matured scored buys\n(sampleSufficient=false), preventing misleading statistics from small samples.",
+    description: "Get insider buy track-record scorecard (Pro plan+). Returns the historical hit rate and average return of an insider's discretionary\nopen-market buys (TransactionCode=P, excluding 10b5-1 plans and derivatives).\nScores use absolute return (NOT market-adjusted) anchored at the filing-date close.\nA 'hit' is a scored buy whose 3m (or 6m) return is positive.\nScore fields are null when the insider has fewer than 5 matured scored buys\n(sampleSufficient=false), preventing misleading statistics from small samples.\nNote: all return fields (HitRate3m, AvgReturn3m, MedianReturn3m, etc.) are stored\nas FRACTIONS — 0.05 means +5%, -0.10 means -10%.",
     schema: {
   cik: z.string(),
     },

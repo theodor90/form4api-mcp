@@ -1,8 +1,10 @@
 /**
  * MCP protocol test — spawns the server and verifies:
  *  1. initialize handshake
- *  2. tools/list returns all 23 tools with correct names
- *  3. (optional) live tool call if FORM4API_KEY is set
+ *  2. tools/list returns all 27 tools with correct names
+ *  3. prompts/list returns all 6 recipe prompts
+ *  4. prompts/get returns rendered messages for a sample of prompts
+ *  5. (optional) live tool call if FORM4API_KEY is set
  */
 import { spawn } from 'node:child_process'
 import { createInterface } from 'node:readline'
@@ -49,6 +51,16 @@ const EXPECTED_TOOLS = [
   'get_public_stats',
   // Flagship bundled research tool (2026-06-25)
   'research_company',
+]
+
+// Recipe prompts (v1.9.0, 2026-07-11) — the MCP "prompts" capability.
+const EXPECTED_PROMPTS = [
+  'insider_monitor',
+  'cluster_buy_scan',
+  'form144_early_warning',
+  'exec_conviction_check',
+  'institutional_insider_overlap',
+  'post_selloff_buys',
 ]
 
 let passed = 0
@@ -123,11 +135,11 @@ async function runTest() {
     server.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n')
 
     // ── Test 2: tools/list ────────────────────────────────────────────────
-    console.log('\n[2] tools/list — 25 tools registered')
+    console.log('\n[2] tools/list — 27 tools registered')
     const listRes = await send('tools/list', {})
     const toolNames = (listRes.result?.tools ?? []).map(t => t.name)
     assert(!listRes.error, 'no error in tools/list response')
-    assert(toolNames.length === 25, `25 tools returned (got ${toolNames.length})`)
+    assert(toolNames.length === 27, `27 tools returned (got ${toolNames.length})`)
     for (const name of EXPECTED_TOOLS) {
       assert(toolNames.includes(name), `tool "${name}" present`)
     }
@@ -142,9 +154,65 @@ async function runTest() {
     const signalsTool = listRes.result?.tools?.find(t => t.name === 'get_signals')
     assert(signalsTool?.inputSchema?.properties?.cluster_buy !== undefined, 'get_signals has cluster_buy param')
 
-    // ── Test 4: live tool call (only if real key provided) ───────────────
+    // ── Test 4: prompts/list — 6 recipe prompts ───────────────────────────
+    console.log('\n[4] prompts/list — 6 recipe prompts registered')
+    const promptsListRes = await send('prompts/list', {})
+    const promptNames = (promptsListRes.result?.prompts ?? []).map(p => p.name)
+    assert(!promptsListRes.error, 'no error in prompts/list response')
+    assert(promptNames.length === 6, `6 prompts returned (got ${promptNames.length})`)
+    for (const name of EXPECTED_PROMPTS) {
+      assert(promptNames.includes(name), `prompt "${name}" present`)
+    }
+    const insiderMonitorMeta = promptsListRes.result?.prompts?.find(p => p.name === 'insider_monitor')
+    assert(typeof insiderMonitorMeta?.description === 'string' && insiderMonitorMeta.description.length > 0, 'insider_monitor has a description')
+    assert(
+      (insiderMonitorMeta?.arguments ?? []).some(a => a.name === 'ticker'),
+      'insider_monitor declares a "ticker" argument',
+    )
+
+    // ── Test 5: prompts/get — rendered messages for a sample of prompts ──
+    console.log('\n[5] prompts/get — insider_monitor')
+    const insiderMonitorRes = await send('prompts/get', {
+      name: 'insider_monitor',
+      arguments: { ticker: 'AAPL' },
+    })
+    assert(!insiderMonitorRes.error, 'no error in prompts/get(insider_monitor) response')
+    const insiderMonitorMessages = insiderMonitorRes.result?.messages ?? []
+    assert(insiderMonitorMessages.length > 0, 'insider_monitor returns at least one message')
+    assert(insiderMonitorMessages[0]?.role === 'user', 'insider_monitor message role is "user"')
+    assert(
+      typeof insiderMonitorMessages[0]?.content?.text === 'string' && insiderMonitorMessages[0].content.text.includes('AAPL'),
+      'insider_monitor message text interpolates the ticker argument',
+    )
+    assert(
+      insiderMonitorMessages[0].content.text.includes('research_company'),
+      'insider_monitor message references the research_company tool',
+    )
+
+    console.log('\n[6] prompts/get — post_selloff_buys (default min_return)')
+    const postSelloffRes = await send('prompts/get', {
+      name: 'post_selloff_buys',
+      arguments: {},
+    })
+    assert(!postSelloffRes.error, 'no error in prompts/get(post_selloff_buys) response')
+    const postSelloffMessages = postSelloffRes.result?.messages ?? []
+    assert(postSelloffMessages.length > 0, 'post_selloff_buys returns at least one message')
+    assert(
+      typeof postSelloffMessages[0]?.content?.text === 'string' && postSelloffMessages[0].content.text.includes('get_insider_scorecard'),
+      'post_selloff_buys message references the get_insider_scorecard tool',
+    )
+    assert(
+      postSelloffMessages[0].content.text.includes('0.05'),
+      'post_selloff_buys message applies the default min_return of 0.05',
+    )
+
+    console.log('\n[7] prompts/get — unknown prompt name is rejected')
+    const unknownPromptRes = await send('prompts/get', { name: 'not_a_real_prompt', arguments: {} })
+    assert(!!unknownPromptRes.error, 'prompts/get with an unknown name returns a protocol error')
+
+    // ── Test 8: live tool call (only if real key provided) ───────────────
     if (process.env.FORM4API_KEY && !process.env.FORM4API_KEY.startsWith('fapi_test')) {
-      console.log('\n[4] Live tool call — check_usage')
+      console.log('\n[8] Live tool call — check_usage')
       const callRes = await send('tools/call', {
         name: 'check_usage',
         arguments: {},
@@ -160,7 +228,7 @@ async function runTest() {
         console.log(`     → Plan: ${usage.plan}, ${usage.requestsToday}/${usage.dailyLimit} requests today`)
       }
 
-      console.log('\n[5] Live tool call — get_transactions (AAPL, 5 results)')
+      console.log('\n[9] Live tool call — get_transactions (AAPL, 5 results)')
       const txRes = await send('tools/call', {
         name: 'get_transactions',
         arguments: { ticker: 'AAPL', per_page: 5, exclude_10b5: true },
@@ -182,7 +250,7 @@ async function runTest() {
         }
       }
     } else {
-      console.log('\n[4] Skipping live API tests (no real FORM4API_KEY set)')
+      console.log('\n[8] Skipping live API tests (no real FORM4API_KEY set)')
       console.log('     Run with: FORM4API_KEY=YOUR_API_KEY node test/mcp-test.mjs')
     }
 
