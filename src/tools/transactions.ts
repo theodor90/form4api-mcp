@@ -3,13 +3,13 @@ import type { Form4ApiClient } from '../client.js'
 import type { Transaction } from '../types.js'
 
 export const getTransactionsSchema = z.object({
-  ticker: z.string().optional().describe('Stock ticker symbol, e.g. AAPL'),
-  cik: z.string().optional().describe('Company CIK number'),
-  insider_cik: z.string().optional().describe('Insider CIK number'),
+  ticker: z.string().optional().describe('Stock ticker symbol, case-insensitive, e.g. AAPL or aapl.'),
+  cik: z.string().optional().describe('Company CIK number — SEC\'s numeric filer identifier, e.g. 0000320193. Leading zeros optional.'),
+  insider_cik: z.string().optional().describe('Insider CIK number — SEC\'s numeric filer identifier, e.g. 0001214128. Leading zeros optional.'),
   code: z
     .enum(['P', 'S', 'A', 'M', 'F', 'D', 'G', 'C', 'J'])
     .optional()
-    .describe('SEC transaction code. P=purchase, S=sale, A=award, M=option exercise, F=tax withholding, D=disposition'),
+    .describe('Single SEC transaction code to filter to. P=open-market purchase, S=open-market sale, A=grant/award, M=option exercise, F=tax withholding on vesting, D=disposition to issuer, G=gift, C=conversion of derivative, J=other. Use `codes` instead to match more than one.'),
   exclude_10b5: z
     .boolean()
     .optional()
@@ -17,7 +17,7 @@ export const getTransactionsSchema = z.object({
   codes: z
     .string()
     .optional()
-    .describe('Comma-separated list of SEC transaction codes to include, e.g. "P,S". Multi-code superset of `code`.'),
+    .describe('Comma-separated list of SEC transaction codes to include, e.g. "P,S" (see `code` for the letter meanings). Multi-code superset of `code`.'),
   exclude_codes: z
     .string()
     .optional()
@@ -41,17 +41,17 @@ export const getTransactionsSchema = z.object({
   min_value: z
     .number()
     .optional()
-    .describe('Minimum trade value in USD (shares × price). Pro plan or higher.'),
+    .describe('Minimum trade value in USD (shares × price), inclusive. Requires Pro plan or higher — omitted or ignored on Free.'),
   max_value: z
     .number()
     .optional()
-    .describe('Maximum trade value in USD (shares × price). Pro plan or higher.'),
-  min_shares: z.number().optional().describe('Minimum number of shares. Pro plan or higher.'),
-  max_shares: z.number().optional().describe('Maximum number of shares. Pro plan or higher.'),
-  from: z.string().optional().describe('Start date in ISO 8601 format, e.g. 2026-01-01'),
-  to: z.string().optional().describe('End date in ISO 8601 format, e.g. 2026-12-31'),
-  page: z.number().int().min(1).optional().default(1).describe('Page number for pagination'),
-  per_page: z.number().int().min(1).max(100).optional().default(20).describe('Results per page (max 100)'),
+    .describe('Maximum trade value in USD (shares × price), inclusive. Requires Pro plan or higher — omitted or ignored on Free.'),
+  min_shares: z.number().optional().describe('Minimum number of shares, inclusive. Requires Pro plan or higher — omitted or ignored on Free.'),
+  max_shares: z.number().optional().describe('Maximum number of shares, inclusive. Requires Pro plan or higher — omitted or ignored on Free.'),
+  from: z.string().optional().describe('Start date, inclusive, format YYYY-MM-DD (e.g. 2026-01-01). Filters on transactionDate.'),
+  to: z.string().optional().describe('End date, inclusive, format YYYY-MM-DD (e.g. 2026-12-31). Filters on transactionDate.'),
+  page: z.number().int().min(1).optional().default(1).describe('1-based page number. Defaults to 1.'),
+  per_page: z.number().int().min(1).max(100).optional().default(20).describe('Results per page. Defaults to 20, maximum 100.'),
 })
 
 export type GetTransactionsInput = z.infer<typeof getTransactionsSchema>

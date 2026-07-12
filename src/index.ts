@@ -69,7 +69,7 @@ const READ_ONLY = { readOnlyHint: true, openWorldHint: true } as const
 
 server.tool(
   'get_transactions',
-  'Search SEC Form 4 insider transactions. Filter by ticker, insider, transaction type, date range, and more. Use exclude_10b5=true for discretionary-only signal analysis.',
+  "Search SEC Form 4 insider transactions with rich filters: ticker, insider CIK, transaction code/category, date range, and (Pro+) trade-size thresholds. Returns transaction-level rows — shares, price, total value, transaction code, 10b5-1 flag, insider role flags. Use this for filtered or historical search across many companies/insiders; use get_recent_filings for an unfiltered live feed instead, or get_insider_transactions/get_company_insiders when you already have a specific insider or company. Free plan; min_value/max_value/min_shares/max_shares require Pro. Paginated, max 100/page.",
   getTransactionsSchema.shape,
   READ_ONLY,
   async (input) => {
@@ -83,7 +83,7 @@ server.tool(
 
 server.tool(
   'get_recent_filings',
-  'Get the most recent SEC Form 4 filings, optionally filtered by ticker.',
+  'Live feed of the newest SEC Form 4 filings, sorted most-recent-first, optionally filtered to one ticker. New filings typically appear within ~60 seconds of SEC publication. Use this to check "what just happened" rather than get_transactions (built for filtered/historical search across date ranges and codes). Returns per-filing accession number, filed/period-of-report dates, company + insider identity, and transaction count; pass the accession number to get_filing for full detail. Free plan. Paginated, max 100/page.',
   getRecentFilingsSchema.shape,
   READ_ONLY,
   async (input) => {
@@ -97,7 +97,7 @@ server.tool(
 
 server.tool(
   'get_filing',
-  'Get a single Form 4 filing by its SEC accession number.',
+  'Fetch one Form 4 filing by its exact SEC accession number (format NNNNNNNNNN-YY-NNNNNN, e.g. 0000320193-26-000001). Use this once you already have an accession number from get_recent_filings or get_transactions. Returns filed/period-of-report dates, company and insider identity, and transaction count for that filing. Free plan.',
   getFilingSchema.shape,
   READ_ONLY,
   async (input) => {
@@ -111,7 +111,7 @@ server.tool(
 
 server.tool(
   'get_insider_profile',
-  'Get an insider profile by CIK — name, title, role flags (director/officer/10pct owner).',
+  "Look up one insider's identity by CIK (SEC's numeric filer identifier, e.g. 0001214128) — returns name, all known titles, and director/officer/10%-owner role flags. If you only have a name, resolve it to a CIK first with the generated search_insiders tool. For trading history use get_insider_transactions or get_insider_career_summary instead. Free plan.",
   getInsiderProfileSchema.shape,
   READ_ONLY,
   async (input) => {
@@ -125,7 +125,7 @@ server.tool(
 
 server.tool(
   'get_insider_transactions',
-  'Get all Form 4 transactions for a specific insider by their CIK.',
+  "All Form 4 transactions filed by one insider (by CIK), filterable by ticker, transaction code, date range, and 10b5-1 exclusion. Use this once you have an insider's CIK on hand; get_transactions with insider_cik= gives the same rows alongside its broader filter set, while get_insider_career_summary returns a pre-aggregated rollup instead of raw rows. Free plan. Paginated, max 100/page.",
   getInsiderTransactionsSchema.shape,
   READ_ONLY,
   async (input) => {
@@ -139,7 +139,7 @@ server.tool(
 
 server.tool(
   'get_company_overview',
-  'Get company profile — name, CIK, SIC sector, state of incorporation, website, filing counts.',
+  "Company profile for a single ticker — name, CIK, SIC sector/description, state of incorporation, website, total Form 4 filing count, and active insider count. Use this for company identity/metadata; use get_company_insiders to list who is filing, or get_transactions with ticker= for their trade history. Free plan.",
   getCompanyOverviewSchema.shape,
   READ_ONLY,
   async (input) => {
@@ -153,7 +153,7 @@ server.tool(
 
 server.tool(
   'get_company_insiders',
-  'List all insiders who have filed Form 4s for a company.',
+  "Full roster of insiders who have ever filed a Form 4 for a given ticker — name, CIK, titles, director/officer/10%-owner flags, last-filed date, and total transaction count per insider. Use this to enumerate a company's insiders (e.g. before pulling each one's career summary); use get_transactions with ticker= for the underlying trade history itself. Free plan. Paginated, max 100/page.",
   getCompanyInsidersSchema.shape,
   READ_ONLY,
   async (input) => {
@@ -167,7 +167,7 @@ server.tool(
 
 server.tool(
   'get_signals',
-  'Get cluster buy/sell signals — multiple insiders at the same company transacting in the same direction within a short window. Excludes 10b5-1 plan trades automatically (no scraping-based tool does this). Requires Business plan.',
+  'Cluster buy/sell signals — multiple insiders at the same company trading in the same direction within a short window, a stronger conviction signal than any single trade. Excludes 10b5-1 plan trades automatically by construction. Returns signal type, detection date, buyer/seller counts, total $ value, and the underlying transactions; pair with the generated explain_signal tool to see exactly why a given signal fired. Use get_transactions instead for raw, unaggregated trade search. Requires Business plan (a 402 upgrade_required response is returned otherwise). Paginated, max 50/page.',
   getSignalsSchema.shape,
   READ_ONLY,
   async (input) => {
@@ -181,7 +181,7 @@ server.tool(
 
 server.tool(
   'get_form144',
-  'List Form 144 notice-of-proposed-sale filings. Insiders disclose intent to sell ~2 days before the actual Form 4 sale lands — early signal on discretionary vs pre-scheduled sales. Filter by ticker, insider name, date range, or exclude 10b5-1 plans. Requires Business plan.',
+  'Form 144 notice-of-proposed-sale filings — insiders disclose intent to sell roughly 2 days before the matching Form 4 sale lands, so this is an early-warning signal, especially discretionary (non-10b5-1) notices. Filter by ticker, insider name (partial match), date range, or exclude_10b5. Cross-reference with get_transactions/get_insider_transactions to see whether the intent was actually executed. Requires Business plan. Paginated, max 100/page.',
   getForm144Schema.shape,
   READ_ONLY,
   async (input) => {
@@ -195,7 +195,7 @@ server.tool(
 
 server.tool(
   'get_holdings',
-  'List institutional positions from Form 13F-HR filings. Filter by ticker (CUSIP→ticker resolved automatically), CUSIP, manager CIK, quarter, or minimum position value. Use this to find "who owns NVDA" or "which managers added to AAPL last quarter". Requires Business plan.',
+  'Institutional 13F-HR positions — filter by ticker (CUSIP resolved to ticker automatically), CUSIP, manager CIK, quarter, or minimum position value. Answers "who owns NVDA" or "which managers hold AAPL this quarter"; pair with get_managers to look up a manager\'s identity/AUM, or get_transactions to cross-reference insider activity at the same company. Requires Business plan. Paginated, max 100/page.',
   getHoldingsSchema.shape,
   READ_ONLY,
   async (input) => {
@@ -209,7 +209,7 @@ server.tool(
 
 server.tool(
   'get_managers',
-  'Browse the institutional manager index — each manager with their latest 13F-HR filing and AUM. Filter by name (partial match — "Berkshire" returns Berkshire Hathaway) or minimum AUM. Pair with get_holdings to see what a given manager owns. Requires Business plan.',
+  'Browse the institutional manager index — each manager with their latest 13F-HR filing date and AUM. Filter by name (partial match — "Berkshire" returns Berkshire Hathaway) or minimum AUM. Pair with get_holdings to see what a given manager owns. Requires Business plan. Paginated, max 100/page.',
   getManagersSchema.shape,
   READ_ONLY,
   async (input) => {
@@ -223,7 +223,7 @@ server.tool(
 
 server.tool(
   'get_sentiment',
-  'Get the monthly insider-sentiment score for a ticker (MSPR-style, -100 to +100). Automatically excludes 10b5-1 plan trades — the score reflects actual insider conviction, not pre-scheduled dispositions. Requires Business plan.',
+  'Monthly insider-sentiment score for a ticker (MSPR-style, -100 to +100; positive = net buying conviction), one point per month, defaulting to roughly the last 12 months. Automatically excludes 10b5-1 plan trades so the score reflects discretionary conviction, not pre-scheduled dispositions. Use get_transactions or get_signals for the trade-level detail behind a given month. Requires Business plan.',
   getSentimentSchema.shape,
   READ_ONLY,
   async (input) => {
@@ -237,7 +237,7 @@ server.tool(
 
 server.tool(
   'get_insider_career_summary',
-  'Get an aggregate career rollup for a single insider by CIK: first/last transaction, total bought/sold/net, top companies, transaction-code breakdown, 10b5-1 plan split, post-trade return averages. Requires Pro plan.',
+  'Aggregate career rollup for one insider by CIK — first/last transaction dates, total shares/value bought vs sold, top companies traded, transaction-code breakdown, 10b5-1 plan split, and average post-trade returns (stored as fractions, e.g. 0.05 = +5%). Use this instead of get_insider_transactions when you want a pre-computed summary rather than raw rows; pair with the generated get_insider_scorecard for hit-rate statistics on their discretionary buys specifically. Requires Pro plan.',
   getInsiderCareerSummarySchema.shape,
   READ_ONLY,
   async (input) => {
@@ -251,7 +251,7 @@ server.tool(
 
 server.tool(
   'check_usage',
-  'Check current API key usage stats — plan name, requests today, daily limit, all-time request count.',
+  "Snapshot of the authenticated API key's current usage — plan name, requests made today, daily limit, and all-time request count. Use this for a quick right-now check; use the generated get_usage_history tool for a daily trend over time, or get_key_activity for a per-request log. Free plan, works on every tier.",
   checkUsageSchema.shape,
   READ_ONLY,
   async (_input) => {
@@ -265,7 +265,7 @@ server.tool(
 
 server.tool(
   'verify_setup',
-  'validates your Form4API key + connectivity and returns a green check or exact fix steps; run this first if other tools fail',
+  'Diagnostic check: confirms FORM4API_KEY is present and valid, the backend is reachable, and reports your current plan — returns a pass/fail/warn per check plus concrete next steps (where to get a key, how to upgrade) instead of a raw error. Run this first whenever another tool fails or returns a 401/402, to isolate whether the problem is configuration, plan, or a backend outage. No API key or parameters required.',
   verifySetupSchema.shape,
   READ_ONLY,
   async () => {
@@ -279,7 +279,7 @@ server.tool(
 
 server.tool(
   'research_company',
-  'One call: a bundled, AI-ready insider-research context for a ticker — company profile, recent insider transactions, cluster signals, sentiment, and a computed buy/sell summary. Use this FIRST when researching a company\'s insider activity; it replaces several separate calls. Note: makes multiple API calls.',
+  "Bundled insider-research context for one ticker in a single call — company profile, recent insider transactions (10b5-1 flagged), cluster buy/sell signals, monthly sentiment score, and a computed net buy/sell direction summary. Use this FIRST for any company insider-research question; it replaces 4 separate calls (get_company_overview, get_transactions, get_signals, get_sentiment) and degrades gracefully — if signals/sentiment require a plan you don't have, they come back null with an explanatory `_unavailable` note instead of failing the whole call. Company/transaction data works on Free; signals/sentiment sections require Business. Fetches all sections concurrently. Research and decision-support only, not investment advice.",
   researchCompanySchema.shape,
   READ_ONLY,
   async (input) => {

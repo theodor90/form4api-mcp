@@ -3,13 +3,13 @@ import type { Form4ApiClient } from '../client.js'
 import type { Company, CompanyInsider } from '../types.js'
 
 export const getCompanyOverviewSchema = z.object({
-  ticker: z.string().describe('Stock ticker symbol, e.g. MSFT'),
+  ticker: z.string().describe('Stock ticker symbol, case-insensitive, e.g. MSFT.'),
 })
 
 export const getCompanyInsidersSchema = z.object({
-  ticker: z.string().describe('Stock ticker symbol'),
-  per_page: z.number().int().min(1).max(100).optional().default(20).describe('Results per page (max 100)'),
-  page: z.number().int().min(1).optional().default(1).describe('Page number'),
+  ticker: z.string().describe('Stock ticker symbol, case-insensitive, e.g. MSFT.'),
+  per_page: z.number().int().min(1).max(100).optional().default(20).describe('Results per page. Defaults to 20, maximum 100.'),
+  page: z.number().int().min(1).optional().default(1).describe('1-based page number. Defaults to 1.'),
 })
 
 export type GetCompanyOverviewInput = z.infer<typeof getCompanyOverviewSchema>

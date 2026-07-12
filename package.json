@@ -1,6 +1,6 @@
 {
   "name": "form4api-mcp",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "mcpName": "io.github.theodor90/form4api-mcp",
   "description": "MCP server for Form4API — SEC Form 4 insider trading data. Lets Claude / Cursor / Windsurf / Zed query real-time US insider trading data via natural language.",
   "keywords": [
