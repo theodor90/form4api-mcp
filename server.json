@@ -3,7 +3,7 @@
   "name": "io.github.theodor90/form4api-mcp",
   "title": "Form4API — SEC Insider Trading",
   "description": "Real-time SEC Form 4 insider trading + Form 144 & 13F-HR data. 27 tools + 6 research prompts.",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "websiteUrl": "https://www.form4api.com",
   "repository": {
     "url": "https://github.com/theodor90/form4api-mcp",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "form4api-mcp",
-      "version": "1.9.1",
+      "version": "1.9.2",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {
