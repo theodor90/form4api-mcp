@@ -24,6 +24,19 @@ This ensures clients can always see what tools are available in a given version 
 
 ---
 
+## [1.9.2] — 2026-07-12
+
+### Changed
+- Codegen sync: 7 tools gained substantially richer descriptions and per-parameter docs (search_insiders, get_key_activity, list_companies, get_company_insiders, get_usage_history, get_data_quality, get_recent_filings) — sourced from the enriched backend OpenAPI spec
+- Dependency refresh via `npm audit fix` — 0 known vulnerabilities (was 1 high / 1 moderate, both transitive)
+
+### Added
+- `glama.json` (directory maintainer metadata)
+
+**Tool count: 27** (no change)
+
+---
+
 ## [1.9.1] — 2026-07-11
 
 ### Fixed

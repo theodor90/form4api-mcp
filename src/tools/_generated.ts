@@ -44,7 +44,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetDataQuality',
     method: 'GET',
     path: '/v1/data-quality',
-    description: "Public data-quality, freshness and coverage metrics",
+    description: "Public data-quality, freshness and coverage metrics for the whole dataset. Returns public, keyless metrics on data freshness, ingestion latency, corpus coverage, and post-trade returns coverage — use this to check whether the dataset is current before relying on it (e.g. confirm Form 4 ingestion isn't stalled, or that price data isn't stale), not to look up any single company, insider, or transaction. Includes: most recent Form 4 processed timestamp and median/p95 filing-accepted-to-processed latency in seconds, latest price-bar date and how many days behind it is, total companies/transactions tracked plus filing counts by form type (4, 144, 13F-HR), the percentage of 13F CUSIPs resolved to a ticker, and the percentage of eligible transactions with fully computed post-trade returns. Takes no parameters. Cached for 30 minutes; no API key or plan required.",
     schema: {
 
     },
@@ -85,9 +85,9 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetKeyActivity',
     method: 'GET',
     path: '/v1/keys/usage/activity',
-    description: "Recent API requests for the authenticated key",
+    description: "Recent, per-request API activity log for the authenticated key. Returns the most recent HTTP requests made with the authenticated API key, most recent first, including the endpoint path, response status code, duration in milliseconds, and timestamp. Use this to debug integration issues — confirm a specific call reached the API, check for repeated 4xx/5xx responses, or spot slow requests — rather than for usage trends; for aggregate daily counts use GET /v1/keys/usage/history instead. Requires a valid X-Api-Key (401 without one).",
     schema: {
-  limit: z.number().int().optional(),
+  limit: z.number().int().optional().describe(`Number of most-recent requests to return. Defaults to 100, maximum 200.`),
     },
     handler: async (client, input) => client.get<unknown>('/v1/keys/usage/activity', {
         limit: input.limit as never,
@@ -109,9 +109,9 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetUsageHistory',
     method: 'GET',
     path: '/v1/keys/usage/history',
-    description: "Daily request counts for the last N days",
+    description: "Daily request counts for the authenticated key over a trailing window. Returns a daily time series of request counts for the authenticated API key over the trailing N days — one data point per calendar day (UTC). Use this to plot usage trends or check rate-limit headroom over time. For a single current-day snapshot (today's count, plan limit, reset time) use GET /v1/keys/usage instead; for a raw request-by-request log use GET /v1/keys/usage/activity. Requires a valid X-Api-Key (401 without one).",
     schema: {
-  days: z.number().int().optional(),
+  days: z.number().int().optional().describe(`Number of trailing days to include, ending today (UTC). Defaults to 30, maximum 90.`),
     },
     handler: async (client, input) => client.get<unknown>('/v1/keys/usage/history', {
         days: input.days as never,
@@ -135,10 +135,10 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'ListCompanies',
     method: 'GET',
     path: '/v1/companies',
-    description: "List companies, optionally sorted by name or totalFilings",
+    description: "List companies with a public ticker, sorted by name or total filings. Returns a single page of companies that have a tracked public ticker — for browsing or building a company picker, not for searching by name or CIK (there is no full-text search here; use GET /v1/companies/{ticker} to fetch one company by its exact ticker). Each entry includes the company's CIK, name, ticker, exchange, total filing count, and distinct insider count. There is no page parameter — this endpoint always returns the top `limit` companies by the chosen sort order. Not plan-gated.",
     schema: {
-  sort: z.string().optional(),
-  limit: z.number().int().optional(),
+  sort: z.string().optional().describe(`Sort order: "name" (alphabetical, default) or "totalfilings" (most SEC filings first). Case-insensitive; unrecognized values fall back to "name".`),
+  limit: z.number().int().optional().describe(`Maximum number of companies to return. Defaults to 50, maximum 50.`),
     },
     handler: async (client, input) => client.get<unknown>('/v1/companies', {
         sort: input.sort as never,
@@ -161,11 +161,11 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'ListInsiders',
     method: 'GET',
     path: '/v1/insiders',
-    description: "Search insiders by name",
+    description: "Search insiders (officers, directors, 10% owners) by name. Searches insiders by name and returns a paginated list of matches with each insider's CIK, title, director/officer/10%-owner flags, and total filing count. Use this to resolve a person's name to their CIK before fetching their transaction history, career summary, or scorecard — the CIK returned here feeds directly into GET /v1/insiders/{cik}/transactions, /summary, and /scorecard. Omitting the name filter returns insiders in alphabetical order rather than performing a search. Not plan-gated — available on the Free tier.",
     schema: {
-  name: z.string().optional(),
-  page: z.number().int().optional(),
-  per_page: z.number().int().optional(),
+  name: z.string().optional().describe(`Case-insensitive substring match against the insider's full name (e.g. "Musk", "cook"). Must be at least 2 characters — shorter values return a 400 QUERY_TOO_SHORT error. Omit to list all insiders alphabetically.`),
+  page: z.number().int().optional().describe(`1-based page number. Defaults to 1.`),
+  per_page: z.number().int().optional().describe(`Number of insiders per page. Defaults to 20, maximum 500.`),
     },
     handler: async (client, input) => client.get<unknown>('/v1/insiders', {
         name: input.name as never,
