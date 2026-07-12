@@ -30,10 +30,10 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'ExplainSignal',
     method: 'GET',
     path: '/v1/signals/{ticker}/explain',
-    description: "Explain why a signal fired: the insiders and trades counted, what was excluded, and the criteria (Business plan+)",
+    description: "Explain why a signal fired: the insiders and trades counted, what was excluded, and the criteria (Business plan+). Reconstructs the full evidence behind one company's insider signal from GET /v1/signals: the detection criteria (5-day cluster window, 3-insider threshold, 90-day ratio window, 10b5-1 exclusion), the list of cluster buyers and sellers (each with their role and individual trades in the window), trades that were excluded from the cluster count and why (10b5-1 plan or superseded by amendment), and the raw buy/sell share totals behind the 90-day ratio. Use this to audit or debug a specific signal rather than to scan many companies (use GET /v1/signals for that). This is a LIVE reconstruction from current non-superseded data, computed on every request (no caching) — it can differ slightly from the originally stored signal if trades were amended afterward. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Returns 404 COMPANY_NOT_FOUND if the ticker isn't tracked, 404 SIGNAL_NOT_FOUND if no signal exists for the given/most-recent date, or 400 INVALID_DATE if `date` isn't YYYY-MM-DD.",
     schema: {
-  ticker: z.string(),
-  date: z.string().optional(),
+  ticker: z.string().describe(`Company ticker symbol, case-insensitive (e.g. "AAPL").`),
+  date: z.string().optional().describe(`Exact signal date to explain, format YYYY-MM-DD. Omit to explain the company's most recent signal. Returns 404 SIGNAL_NOT_FOUND if no signal exists for the given (or most recent) date.`),
     },
     handler: async (client, input) => client.get<unknown>(`/v1/signals/\${encodeURIComponent(String(input.ticker))}/explain`, {
         date: input.date as never,
@@ -55,12 +55,12 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetInsiderLeaderboard',
     method: 'GET',
     path: '/v1/insiders/leaderboard',
-    description: "Ranked leaderboard of insiders by buy track-record (Business plan+). Returns the top insiders ranked by historical buy performance.\nScores use absolute return (NOT market-adjusted) — a hit is a scored buy\nwith a positive 3m (or 6m) return anchored at the filing-date close.\nOnly discretionary open-market buys (P-code, not 10b5-1, not derivative)\nwith a matured return are counted. Insiders with fewer than min_trades\n(floor 5) scored buys are excluded. Results are cached for 1 hour.\nParameters: horizon=3m|6m (default 3m), order=hit_rate|avg_return (default hit_rate),\nmin_trades (default 5, minimum 5), limit (default 25, max 100).",
+    description: "Ranked leaderboard of insiders by buy track-record (Business plan+). Returns the top insiders ranked by historical buy performance — same scored-buy methodology as\nGET /v1/insiders/{cik}/scorecard, applied across the whole corpus rather than one insider. Use\nthis to discover which insiders have the best track record; use the per-insider scorecard once\nyou have a specific CIK. Scores use absolute return (NOT market-adjusted) — a hit is a scored\nbuy with a positive 3m (or 6m) return anchored at the filing-date close. Only discretionary\nopen-market buys (P-code, not 10b5-1, not derivative) with a matured return are counted.\nInsiders with fewer than min_trades (floor 5) scored buys are excluded. Requires Business plan\nor higher (402 PLAN_REQUIRED on Free/Starter/Pro). Results are cached for 1 hour per unique\nparameter combination.",
     schema: {
-  horizon: z.string().optional(),
-  order: z.string().optional(),
-  min_trades: z.number().int().optional(),
-  limit: z.number().int().optional(),
+  horizon: z.string().optional().describe(`"3m" or "6m" — the post-trade return horizon to score and rank by. Defaults to "3m".`),
+  order: z.string().optional().describe(`"hit_rate" (% of scored buys with a positive return) or "avg_return" (mean scored return). Defaults to "hit_rate".`),
+  min_trades: z.number().int().optional().describe(`Minimum number of scored buys an insider must have to be ranked. Defaults to 5; values below 5 are silently raised to 5 (the scorecard sample-sufficiency floor).`),
+  limit: z.number().int().optional().describe(`Maximum number of insiders to return. Defaults to 25, maximum 100.`),
     },
     handler: async (client, input) => client.get<unknown>('/v1/insiders/leaderboard', {
         horizon: input.horizon as never,
@@ -74,9 +74,9 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetInsiderScorecard',
     method: 'GET',
     path: '/v1/insiders/{cik}/scorecard',
-    description: "Get insider buy track-record scorecard (Pro plan+). Returns the historical hit rate and average return of an insider's discretionary\nopen-market buys (TransactionCode=P, excluding 10b5-1 plans and derivatives).\nScores use absolute return (NOT market-adjusted) anchored at the filing-date close.\nA 'hit' is a scored buy whose 3m (or 6m) return is positive.\nScore fields are null when the insider has fewer than 5 matured scored buys\n(sampleSufficient=false), preventing misleading statistics from small samples.\nNote: all return fields (HitRate3m, AvgReturn3m, MedianReturn3m, etc.) are stored\nas FRACTIONS — 0.05 means +5%, -0.10 means -10%.",
+    description: "Get insider buy track-record scorecard (Pro plan+). Returns the historical hit rate and average/median return of an insider's discretionary\nopen-market buys (TransactionCode=P, excluding 10b5-1 plans and derivatives), plus their best\nand worst scored buy. Scores use absolute return (NOT market-adjusted) anchored at the\nfiling-date close. A 'hit' is a scored buy whose 3m (or 6m) return is positive. Use this over\nGET /v1/insiders/{cik}/summary when you specifically want a scored track record (with a\nsample-sufficiency guard) rather than raw totals; use GET /v1/insiders/leaderboard (Business+)\nto rank many insiders by this same methodology. Score fields (hitRate3m, avgReturn3m, etc.) are\nnull when the insider has fewer than 5 matured scored buys (sampleSufficient=false), preventing\nmisleading statistics from small samples. Requires Pro plan or higher (402 PLAN_REQUIRED on\nFree/Starter). Returns 404 NOT_FOUND if the CIK isn't tracked. Computed live — no caching.\nNote: all return fields (HitRate3m, AvgReturn3m, MedianReturn3m, etc.) are stored\nas FRACTIONS — 0.05 means +5%, -0.10 means -10%.",
     schema: {
-  cik: z.string(),
+  cik: z.string().describe(`Insider's SEC CIK, exact match.`),
     },
     handler: async (client, input) => client.get<unknown>(`/v1/insiders/\${encodeURIComponent(String(input.cik))}/scorecard`),
   },
@@ -98,7 +98,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetPublicStats',
     method: 'GET',
     path: '/v1/stats',
-    description: "Public corpus statistics (cached ~12h).",
+    description: "Public corpus-wide statistics — no API key required. Returns headline dataset totals: filing count, transaction count, tracked companies, institutional holdings rows, Form 144 and Form 13F-HR filing counts, the earliest filing date in the corpus, the most recent quarter's total 13F-HR reported AUM in USD, and measured ingestion latency (median/p95 seconds from SEC acceptance to our processing, trailing 7 days). Use this for corpus-wide totals (e.g. a marketing/status widget), not for per-company or per-insider data — those live under GET /v1/companies and GET /v1/insiders. For freshness and coverage-quality metrics (is ingestion stalled, is price data stale) use GET /v1/data-quality instead. Takes no parameters. No API key or plan required. Cached for ~12 hours.",
     schema: {
 
     },
@@ -122,9 +122,9 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetWebhookEvents',
     method: 'GET',
     path: '/v1/webhooks/events',
-    description: "Replay webhook delivery events since a given timestamp (default: last 24h)",
+    description: "Replay webhook delivery events since a given timestamp (default: last 24h). Returns up to 500 delivery attempts across all of the authenticated key's subscriptions since `since` (default: last 24 hours), most recent first — delivery id, subscription id, event type, attempt count, delivered-at/next-retry-at timestamps, last HTTP status code from the receiving endpoint, whether the delivery is dead (exhausted all retries), and the event payload. Use this to reconcile missed webhook deliveries (e.g. after an outage on your receiving endpoint) rather than relying solely on push delivery. `since` cannot be more than 30 days in the past. Requires a valid X-Api-Key (401 without one).",
     schema: {
-  since: z.string().optional(),
+  since: z.string().optional().describe(`Inclusive lower bound for delivery timestamps, ISO-8601 datetime. Defaults to 24 hours ago. Cannot be more than 30 days in the past (400 INVALID_RANGE).`),
     },
     handler: async (client, input) => client.get<unknown>('/v1/webhooks/events', {
         since: input.since as never,
@@ -150,7 +150,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'ListWebhooks',
     method: 'GET',
     path: '/v1/webhooks',
-    description: "List webhook subscriptions for this API key",
+    description: "List webhook subscriptions owned by the authenticated API key. Returns every webhook subscription (active and deactivated) created under the authenticated API key: subscription id, target URL, subscribed event types, creation date, active flag, and the isReadOnly flag. Does NOT return the signing secret again (it's shown once, at creation, by POST /v1/webhooks) — regenerate by deleting and recreating the subscription if it's lost. Requires a valid X-Api-Key (401 without one).",
     schema: {
 
     },

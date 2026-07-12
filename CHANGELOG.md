@@ -24,6 +24,16 @@ This ensures clients can always see what tools are available in a given version 
 
 ---
 
+## [1.9.3] — 2026-07-12
+
+### Changed
+- **Every tool definition rewritten to directory-quality standard** — all 17 hand-registered tools (descriptions in index.ts + parameter `.describe()`s in src/tools/*) and all generated tools (via codegen sync with backend wave-2, insiderapi #130): purpose, when-to-use-vs-sibling guidance, plan tiers with exact 402/403 behavior, freshness/caching notes, pagination caps, fraction-not-percentage units on return filters
+- Corrected: the Free-tier webhook "read-only" flag is informational — deliveries are not suppressed
+
+**Tool count: 27** (no change)
+
+---
+
 ## [1.9.2] — 2026-07-12
 
 ### Changed

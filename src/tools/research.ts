@@ -7,7 +7,7 @@ import { getSignals } from './signals.js'
 import { getSentiment } from './sentiment.js'
 
 export const researchCompanySchema = z.object({
-  ticker: z.string().describe('Stock ticker symbol to research, e.g. AAPL'),
+  ticker: z.string().describe('Stock ticker symbol to research, case-insensitive, e.g. AAPL. Normalized to uppercase internally.'),
   recent_limit: z
     .number()
     .int()
@@ -15,7 +15,7 @@ export const researchCompanySchema = z.object({
     .max(100)
     .optional()
     .default(10)
-    .describe('How many recent insider transactions to include (default 10, max 100)'),
+    .describe('Maximum number of recent insider transactions to include in the bundled result. Minimum 1, defaults to 10, maximum 100.'),
 })
 
 export type ResearchCompanyInput = z.infer<typeof researchCompanySchema>

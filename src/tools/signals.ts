@@ -3,11 +3,11 @@ import type { Form4ApiClient } from '../client.js'
 import type { Signal } from '../types.js'
 
 export const getSignalsSchema = z.object({
-  ticker: z.string().optional().describe('Filter to a specific company ticker'),
-  cluster_buy: z.boolean().optional().describe('Only return cluster buy signals'),
-  cluster_sell: z.boolean().optional().describe('Only return cluster sell signals'),
-  per_page: z.number().int().min(1).max(50).optional().default(20).describe('Results per page (max 50)'),
-  page: z.number().int().min(1).optional().default(1).describe('Page number'),
+  ticker: z.string().optional().describe('Filter to a specific company ticker, case-insensitive, e.g. NVDA. Omit for a market-wide scan across all companies.'),
+  cluster_buy: z.boolean().optional().describe('If true, return only ClusterBuy signals (multiple insiders buying together). Omit both cluster_buy and cluster_sell to return signals of either type.'),
+  cluster_sell: z.boolean().optional().describe('If true, return only ClusterSell signals (multiple insiders selling together). Omit both cluster_buy and cluster_sell to return signals of either type.'),
+  per_page: z.number().int().min(1).max(50).optional().default(20).describe('Results per page. Defaults to 20, maximum 50.'),
+  page: z.number().int().min(1).optional().default(1).describe('1-based page number. Defaults to 1.'),
 })
 
 export type GetSignalsInput = z.infer<typeof getSignalsSchema>

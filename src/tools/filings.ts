@@ -3,13 +3,13 @@ import type { Form4ApiClient } from '../client.js'
 import type { Filing } from '../types.js'
 
 export const getRecentFilingsSchema = z.object({
-  ticker: z.string().optional().describe('Filter by stock ticker, e.g. NVDA'),
-  per_page: z.number().int().min(1).max(100).optional().default(20).describe('Results per page (max 100)'),
-  page: z.number().int().min(1).optional().default(1).describe('Page number'),
+  ticker: z.string().optional().describe('Filter to one stock ticker, case-insensitive, e.g. NVDA. Omit for the unfiltered market-wide feed.'),
+  per_page: z.number().int().min(1).max(100).optional().default(20).describe('Results per page. Defaults to 20, maximum 100.'),
+  page: z.number().int().min(1).optional().default(1).describe('1-based page number. Defaults to 1.'),
 })
 
 export const getFilingSchema = z.object({
-  accession: z.string().describe('Accession number, e.g. 0000320193-26-000001'),
+  accession: z.string().describe('SEC accession number in NNNNNNNNNN-YY-NNNNNN format (10-digit filer CIK, 2-digit year, 6-digit sequence), e.g. 0000320193-26-000001. Copy this from a get_recent_filings or get_transactions result.'),
 })
 
 export type GetRecentFilingsInput = z.infer<typeof getRecentFilingsSchema>

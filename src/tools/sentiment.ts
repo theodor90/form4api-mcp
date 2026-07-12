@@ -3,14 +3,14 @@ import type { Form4ApiClient } from '../client.js'
 import type { SentimentScore } from '../types.js'
 
 export const getSentimentSchema = z.object({
-  ticker: z.string().describe('Stock ticker symbol, e.g. AAPL'),
+  ticker: z.string().describe('Stock ticker symbol, case-insensitive, e.g. AAPL.'),
   months: z
     .number()
     .int()
     .min(1)
     .max(60)
     .optional()
-    .describe('How many past months of sentiment to return. Defaults to backend default (~12).'),
+    .describe('Number of trailing months of sentiment to return, ending with the most recent. Minimum 1, maximum 60. Omit to use the backend default (~12).'),
 })
 
 export type GetSentimentInput = z.infer<typeof getSentimentSchema>
