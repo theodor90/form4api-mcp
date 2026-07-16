@@ -4,6 +4,7 @@
 
 [![npm version](https://badge.fury.io/js/form4api-mcp.svg)](https://www.npmjs.com/package/form4api-mcp)
 [![Available on mcp.so](https://img.shields.io/badge/mcp.so-form4api-blue)](https://mcp.so)
+[![form4api-mcp MCP server](https://glama.ai/mcp/servers/theodor90/form4api-mcp/badges/score.svg)](https://glama.ai/mcp/servers/theodor90/form4api-mcp)
 
 An [MCP](https://modelcontextprotocol.io) server that exposes the hosted [Form4API](https://www.form4api.com) REST API to Claude Desktop, Cursor, Windsurf, VS Code, Codex CLI, and any other MCP-compatible client. Configured once, your LLM can answer questions about insider trading, institutional positioning, and intent-to-sell filings directly during research sessions.
 
