@@ -69,7 +69,7 @@ const READ_ONLY = { readOnlyHint: true, openWorldHint: true } as const
 
 server.tool(
   'get_transactions',
-  "Search SEC Form 4 insider transactions with rich filters: ticker, insider CIK, transaction code/category, date range, and (Pro+) trade-size thresholds. Returns transaction-level rows — shares, price, total value, transaction code, 10b5-1 flag, insider role flags. Use this for filtered or historical search across many companies/insiders; use get_recent_filings for an unfiltered live feed instead, or get_insider_transactions/get_company_insiders when you already have a specific insider or company. Free plan; min_value/max_value/min_shares/max_shares require Pro. Paginated, max 100/page.",
+  "Search SEC Form 4 insider transactions with rich filters: ticker, insider CIK, transaction code/category, date range, (Pro+) trade-size thresholds, and (Pro+) post-trade return screening (1d/1w/1m/3m/6m, returns as fractions e.g. 0.05 = +5%). Also supports institutional-ownership-trend filtering (inst_ownership_trend, Free). Returns transaction-level rows — shares, price, total value, transaction code, 10b5-1 flag, insider role flags. Use this for filtered or historical search across many companies/insiders; use get_recent_filings for an unfiltered live feed instead, or get_insider_transactions/get_company_insiders when you already have a specific insider or company. Free plan; min_value/max_value/min_shares/max_shares/min_return_*/max_return_*/has_returns require Pro. Paginated, max 100/page.",
   getTransactionsSchema.shape,
   READ_ONLY,
   async (input) => {

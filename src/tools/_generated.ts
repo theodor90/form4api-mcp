@@ -105,6 +105,17 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     handler: async (client, input) => client.get<unknown>('/v1/stats'),
   },
   {
+    name: 'get_status_history',
+    operationId: 'GetStatusHistory',
+    method: 'GET',
+    path: '/v1/status/history',
+    description: "Measured uptime history for the public status page — trailing 90-day daily breakdown. Returns a daily breakdown of measured API uptime over a trailing 90-day window, computed from an internal heartbeat probe that runs every 5 minutes and performs the same DB-connectivity check as GET /health/ready. Each day in the `days` array reports the number of 5-minute slots expected to have elapsed (288 for a complete past day, pro-rated for the feature's first day and for today's partial day), how many of those slots recorded a healthy heartbeat, and the resulting uptime percentage for that day — plus an overall percentage (`overallPct`) across the whole window. `start` is the earliest date included: either the date of the very first heartbeat ever recorded, or 89 days before today once more than 90 days of history exist. Days before that are never returned. Use this to render an uptime history / status bar; for live corpus freshness use GET /v1/data-quality instead. Takes no parameters. Cached for ~5 minutes; no API key or plan required.",
+    schema: {
+
+    },
+    handler: async (client, input) => client.get<unknown>('/v1/status/history'),
+  },
+  {
     name: 'get_usage_history',
     operationId: 'GetUsageHistory',
     method: 'GET',
@@ -129,6 +140,17 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     handler: async (client, input) => client.get<unknown>('/v1/webhooks/events', {
         since: input.since as never,
       }),
+  },
+  {
+    name: 'health_ingestion',
+    operationId: 'HealthIngestion',
+    method: 'GET',
+    path: '/health/ingestion',
+    description: "Ingestion-death detector — Form 4 freshness, parse-queue health, price-feed freshness. Returns live (uncached) ingestion health: Form 4 processing freshness (stale after 90 minutes during the weekday 06:00-22:00 US Eastern EDGAR activity window, 14 hours outside it), parse-queue health (stale when >50 jobs are pending AND the oldest has waited >45 minutes), and daily price-feed freshness (degraded, never stale, when price bars are >5 days behind). Overall status is \"healthy\", \"degraded\" (price feed only), or \"stale\" (Form 4 or queue). Returns HTTP 503 when stale, 200 otherwise — safe to point an external uptime monitor at directly. No API key or plan required.",
+    schema: {
+
+    },
+    handler: async (client, input) => client.get<unknown>('/health/ingestion'),
   },
   {
     name: 'list_companies',

@@ -1,7 +1,7 @@
 /**
  * MCP protocol test — spawns the server and verifies:
  *  1. initialize handshake
- *  2. tools/list returns all 27 tools with correct names
+ *  2. tools/list returns all 29 tools with correct names
  *  3. prompts/list returns all 6 recipe prompts
  *  4. prompts/get returns rendered messages for a sample of prompts
  *  5. (optional) live tool call if FORM4API_KEY is set
@@ -51,6 +51,9 @@ const EXPECTED_TOOLS = [
   'get_public_stats',
   // Flagship bundled research tool (2026-06-25)
   'research_company',
+  // Auto-generated after the status-history + ingestion-health endpoints shipped (v1.10.0)
+  'get_status_history',
+  'health_ingestion',
 ]
 
 // Recipe prompts (v1.9.0, 2026-07-11) — the MCP "prompts" capability.
@@ -135,11 +138,11 @@ async function runTest() {
     server.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n')
 
     // ── Test 2: tools/list ────────────────────────────────────────────────
-    console.log('\n[2] tools/list — 27 tools registered')
+    console.log('\n[2] tools/list — 29 tools registered')
     const listRes = await send('tools/list', {})
     const toolNames = (listRes.result?.tools ?? []).map(t => t.name)
     assert(!listRes.error, 'no error in tools/list response')
-    assert(toolNames.length === 27, `27 tools returned (got ${toolNames.length})`)
+    assert(toolNames.length === 29, `29 tools returned (got ${toolNames.length})`)
     for (const name of EXPECTED_TOOLS) {
       assert(toolNames.includes(name), `tool "${name}" present`)
     }
@@ -150,6 +153,9 @@ async function runTest() {
     assert(txTool?.inputSchema?.properties?.ticker !== undefined, 'get_transactions has ticker param')
     assert(txTool?.inputSchema?.properties?.exclude_10b5 !== undefined, 'get_transactions has exclude_10b5 param')
     assert(txTool?.inputSchema?.properties?.code !== undefined, 'get_transactions has code param')
+    assert(txTool?.inputSchema?.properties?.min_return_1d !== undefined, 'get_transactions has min_return_1d param')
+    assert(txTool?.inputSchema?.properties?.has_returns !== undefined, 'get_transactions has has_returns param')
+    assert(txTool?.inputSchema?.properties?.inst_ownership_trend !== undefined, 'get_transactions has inst_ownership_trend param')
 
     const signalsTool = listRes.result?.tools?.find(t => t.name === 'get_signals')
     assert(signalsTool?.inputSchema?.properties?.cluster_buy !== undefined, 'get_signals has cluster_buy param')
