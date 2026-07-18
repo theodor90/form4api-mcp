@@ -1,6 +1,6 @@
 # form4api-mcp
 
-> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay** — 27 tools + 6 ready-made research prompts
+> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay** — 29 tools + 6 ready-made research prompts
 
 [![npm version](https://badge.fury.io/js/form4api-mcp.svg)](https://www.npmjs.com/package/form4api-mcp)
 [![Available on mcp.so](https://img.shields.io/badge/mcp.so-form4api-blue)](https://mcp.so)
@@ -136,13 +136,14 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 
 ---
 
-## Available tools (25)
+## Available tools (29)
 
 ### Form 4 insider trading
 
 | Tool | Description | Plan |
 |---|---|---|
-| `get_transactions` | Search insider transactions — filter by ticker, insider, date range, transaction codes or whole categories (`exclude_category=derivatives`), 10b5-1 plan trades, or use `significant=true` for real discretionary buys/sells only. Pro adds trade-size screening (`min_value`, `min_shares`) | Free |
+| `research_company` | Bundled insider-research context for one ticker in a single call — company profile, recent transactions, cluster signals, sentiment, and a computed buy/sell direction summary. Replaces 4 separate calls and degrades gracefully when a section needs a higher plan | Free (signals/sentiment sections need Business) |
+| `get_transactions` | Search insider transactions — filter by ticker, insider, date range, transaction codes or whole categories (`exclude_category=derivatives`), 10b5-1 plan trades, or use `significant=true` for real discretionary buys/sells only. Pro adds trade-size screening (`min_value`, `min_shares`) and post-trade-return screening (`min_return_1d`…`max_return_6m`, `has_returns`; returns are fractions, 0.05 = +5%). Free tier can filter on `inst_ownership_trend` (13F ownership trend) | Free |
 | `get_recent_filings` | Most recent Form 4 filings, optionally filtered by ticker | Free |
 | `get_filing` | Single filing by accession number | Free |
 | `get_insider_profile` | Insider profile — name, title, director/officer/10pct owner flags | Free |
@@ -183,12 +184,15 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | `list_webhooks` | List your webhook subscriptions | Free |
 | `get_webhook_events` | Replay webhook delivery events since a timestamp | Free |
 | `verify_setup` | Verify the MCP is configured correctly — confirms API key is valid and server is reachable | Free |
+| `get_public_stats` | Public corpus-wide totals (filings, transactions, companies, 13F-HR AUM, ingestion latency) — no API key required | Free (keyless) |
+| `get_status_history` | Trailing 90-day daily uptime history for the public status page | Free (keyless) |
+| `health_ingestion` | Live ingestion-health check — Form 4 freshness, parse-queue backlog, price-feed staleness | Free (keyless) |
 
 ---
 
 ## Prompts (6)
 
-Beyond the 27 tools, this MCP ships 6 **prompts** — ready-made research recipes that a client can list (`prompts/list`) and load (`prompts/get`) so you don't have to hand-assemble the right tool sequence yourself. Each one tells the LLM exactly which SEC Form 4 / Form 144 / 13F-HR tools to call, in what order, and how to read plan-gated results.
+Beyond the 29 tools, this MCP ships 6 **prompts** — ready-made research recipes that a client can list (`prompts/list`) and load (`prompts/get`) so you don't have to hand-assemble the right tool sequence yourself. Each one tells the LLM exactly which SEC Form 4 / Form 144 / 13F-HR tools to call, in what order, and how to read plan-gated results.
 
 | Prompt | Args | What it does |
 |---|---|---|

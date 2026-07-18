@@ -24,6 +24,20 @@ This ensures clients can always see what tools are available in a given version 
 
 ---
 
+## [1.10.0] — 2026-07-18
+
+### Added
+- `get_transactions` gained the backend's post-trade-return screening params: `min_return_1d`/`max_return_1d` through `min_return_6m`/`max_return_6m`, plus `has_returns` (Pro+ — 403 `PRO_TIER_REQUIRED` below Pro; returns are fractions, 0.05 = +5%) and `inst_ownership_trend` (`increasing`/`decreasing`/`stable`, Free — filters on trailing quarter-over-quarter 13F institutional-ownership trend)
+- `get_status_history` (generated) — trailing 90-day daily uptime history for the public status page
+- `health_ingestion` (generated) — live ingestion-health check (Form 4 freshness, parse-queue backlog, price-feed staleness)
+
+### Fixed
+- README tool count and tools table were stale/incomplete (tagline said 27, section heading said 25, and the table itself was missing `get_public_stats` and `research_company`) — recounted against actual registrations and reconciled everywhere
+
+**Tool count: 29** (+2: `get_status_history`, `health_ingestion`)
+
+---
+
 ## [1.9.3] — 2026-07-12
 
 ### Changed
