@@ -1,6 +1,6 @@
 # form4api-mcp
 
-> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay** — 29 tools + 6 ready-made research prompts
+> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay, plus congressional STOCK Act trades and insider/Congress convergence** — 34 tools + 6 ready-made research prompts
 
 [![npm version](https://badge.fury.io/js/form4api-mcp.svg)](https://www.npmjs.com/package/form4api-mcp)
 [![Available on mcp.so](https://img.shields.io/badge/mcp.so-form4api-blue)](https://mcp.so)
@@ -136,7 +136,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 
 ---
 
-## Available tools (29)
+## Available tools (34)
 
 ### Form 4 insider trading
 
@@ -171,6 +171,16 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | `get_managers` | Institutional manager index with latest AUM | Business |
 | `explain_signal` | Explain why a signal fired — the insiders and trades counted, exclusions, and criteria | Business |
 | `get_data_quality` | Public data-quality, freshness and coverage metrics | Free |
+
+### Congress + convergence
+
+| Tool | Description | Plan |
+|---|---|---|
+| `list_congress_trades` | Congressional STOCK Act trades (periodic transaction reports) — filter by ticker, politician, party, chamber, state, transaction type, min amount, or date range. Every row carries `amountLow`/`amountHigh` (disclosed ranges, never a fabricated midpoint) and `disclosureLagDays` — up to 45 days under the STOCK Act, so "real-time" here means minutes-after-disclosure, not minutes-after-trade | Free (30-day disclosure window; Starter 366 days; Pro+ unlimited history) |
+| `list_congress_politicians` | Ranked rollup of politicians by congressional trade activity — total/buy/sell counts, most recent disclosure | Pro |
+| `get_congress_politician` | One politician's full profile by bioguide ID — totals, top traded tickers, most recent trades | Pro |
+| `get_congress_ticker_rollup` | Which politicians traded a given ticker, with net buy/sell counts | Pro |
+| `get_convergence_signals` | Tickers where an insider cluster-buy and a congressional purchase happened within a trailing window of each other. `strength` is documented arithmetic (distinct congressional purchasers × the signal's insider count) — never a black-box or predictive score. No performance/alpha claims are computed or implied | Pro |
 
 ### Utility
 
@@ -271,6 +281,8 @@ The MCP wraps the same backend as all of the above — every fact your LLM cites
 | `get_insider_career_summary`, `get_insider_scorecard` | — | ✓ | ✓ |
 | `get_insider_leaderboard`, `get_signals`, `get_sentiment` | — | — | ✓ |
 | `get_form144`, `get_holdings`, `get_managers` | — | — | ✓ |
+| `list_congress_trades` | ✓ (30-day disclosure window) | ✓ (unlimited history) | ✓ (unlimited history) |
+| `list_congress_politicians`, `get_congress_politician`, `get_congress_ticker_rollup`, `get_convergence_signals` | — | ✓ | ✓ |
 | Requests/day | 500 | 50,000 | 250,000 |
 
 When a tool requires a higher plan, the MCP returns a structured `upgrade_required` payload (with `required_plan` and `upgrade_url`) so the LLM can surface the path to you directly. No mid-conversation 402 confusion.
@@ -288,6 +300,7 @@ Upgrade at [form4api.com/dashboard/billing](https://www.form4api.com/dashboard/b
 - **2.5+ years of history** (since 2023-10)
 - **10b5-1 plan flag** on every transaction
 - **Amendment-aware** — Form 4/A reconciled
+- **Congressional STOCK Act trades** (Pro+) — House Clerk PTR + Senate eFD, digital filings, amounts always shown as disclosed ranges (`amountLow`/`amountHigh`), never a fabricated midpoint, plus `disclosureLagDays` on every trade (up to 45 days under the STOCK Act)
 - **Real-time ingestion** — new filings within minutes of SEC publication
 
 ---

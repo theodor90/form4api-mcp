@@ -24,6 +24,19 @@ This ensures clients can always see what tools are available in a given version 
 
 ---
 
+## [1.11.0] — 2026-07-24
+
+### Added
+- `list_congress_trades` (generated) — query congressional STOCK Act periodic-transaction-report trades; Free+ with a plan-clamped disclosure window (Free 30 days, Starter 366 days, Pro/Business/Enterprise unlimited); every row carries `amountLow`/`amountHigh` (disclosed ranges, never a fabricated midpoint) and `disclosureLagDays`
+- `list_congress_politicians` (generated) — ranked rollup of politicians by congressional trade activity (Pro+)
+- `get_congress_politician` (generated) — one politician's full profile: totals, top tickers, recent trades (Pro+)
+- `get_congress_ticker_rollup` (generated) — which politicians traded a given ticker, with net buy/sell counts (Pro+)
+- `get_convergence_signals` (generated) — tickers where an insider cluster-buy and a congressional purchase happened within a trailing window of each other; `strength` is documented arithmetic (distinct congressional purchasers × the signal's insider count), never a black-box/ML score (Pro+)
+
+**Tool count: 34** (+5: `list_congress_trades`, `list_congress_politicians`, `get_congress_politician`, `get_congress_ticker_rollup`, `get_convergence_signals`)
+
+---
+
 ## [1.10.0] — 2026-07-18
 
 ### Added
