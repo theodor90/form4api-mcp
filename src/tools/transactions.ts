@@ -41,13 +41,13 @@ export const getTransactionsSchema = z.object({
   min_value: z
     .number()
     .optional()
-    .describe('Minimum trade value in USD (shares × price), inclusive. Requires Pro plan or higher — omitted or ignored on Free.'),
+    .describe('Minimum trade value in USD (shares × price), inclusive. Available on every plan.'),
   max_value: z
     .number()
     .optional()
-    .describe('Maximum trade value in USD (shares × price), inclusive. Requires Pro plan or higher — omitted or ignored on Free.'),
-  min_shares: z.number().optional().describe('Minimum number of shares, inclusive. Requires Pro plan or higher — omitted or ignored on Free.'),
-  max_shares: z.number().optional().describe('Maximum number of shares, inclusive. Requires Pro plan or higher — omitted or ignored on Free.'),
+    .describe('Maximum trade value in USD (shares × price), inclusive. Requires Pro plan or higher — the whole call is rejected with 403 on Free/Starter, not silently ignored. Use min_value alone to screen by size on a free key.'),
+  min_shares: z.number().optional().describe('Minimum number of shares, inclusive. Requires Pro plan or higher — the whole call is rejected with 403 on Free/Starter, not silently ignored.'),
+  max_shares: z.number().optional().describe('Maximum number of shares, inclusive. Requires Pro plan or higher — the whole call is rejected with 403 on Free/Starter, not silently ignored.'),
   min_return_1d: z
     .number()
     .optional()
@@ -98,7 +98,7 @@ export const getTransactionsSchema = z.object({
     .describe('Filter by the trailing quarter-over-quarter trend in institutional (13F) ownership of the underlying company. No effect if institutional-ownership enrichment is disabled server-side; rows where the trend was suppressed for insufficient 13F coverage still match "stable".'),
   from: z.string().optional().describe('Start date, inclusive, format YYYY-MM-DD (e.g. 2026-01-01). Filters on transactionDate.'),
   to: z.string().optional().describe('End date, inclusive, format YYYY-MM-DD (e.g. 2026-12-31). Filters on transactionDate.'),
-  page: z.number().int().min(1).optional().default(1).describe('1-based page number. Defaults to 1.'),
+  page: z.number().int().min(1).optional().default(1).describe('1-based page number. Defaults to 1. Paging depth is plan-limited: Free reaches page 20, Starter page 100, Pro and above unlimited; beyond that the call returns 402 with the upgrade path. If you need the full history rather than a page of it, the REST endpoint GET /v1/transactions/export (Business plan) streams the entire filtered set as CSV in one request.'),
   per_page: z.number().int().min(1).max(100).optional().default(20).describe('Results per page. Defaults to 20, maximum 100.'),
 })
 

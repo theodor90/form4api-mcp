@@ -24,6 +24,27 @@ This ensures clients can always see what tools are available in a given version 
 
 ---
 
+## [1.12.0] — 2026-08-01
+
+Tool count unchanged at 34. No tools added, renamed, or removed.
+
+### Fixed
+- **Error messages were unreadable for anything the client didn't special-case.** The API wraps errors as `{ error: { code, message } }`, but the client read `code`/`message` from the top level, so `message` resolved to the nested object and every uncategorised failure reached the agent as `API error 500: [object Object]`. Both the nested and flat shapes are now parsed.
+- `required_plan` on an upgrade payload was always `higher`, because it was inferred only from the error code and the API returns the same `PLAN_REQUIRED` code for every tier — naming the tier only in the message. It now reads the code first and falls back to the message.
+- The upgrade payload replaced the API's explanation with a generic sentence, discarding the part that says *why* the call was blocked. The backend message is now passed through verbatim.
+
+### Added
+- **403 responses are shaped as upgrade payloads too.** A Pro-only query parameter on an otherwise-free tool previously surfaced as a raw error; it now returns the same structured `upgrade_required` shape, so the model can drop the parameter and retry or relay the upgrade path.
+- `unlocks` on the upgrade payload — what the target plan adds, so an agent can give a complete answer without sending the user to the pricing page first.
+- `pricing_url` alongside `upgrade_url`, for comparing tiers rather than jumping straight to checkout.
+- `test/client-errors.mjs` — unit coverage for every error path, including a regression test for the `[object Object]` bug. Wired into `npm test`.
+
+### Changed
+- `get_congress_politician` accepts a URL slug (`nancy-pelosi`) as well as a bioguide ID, picked up by regenerating from the backend spec. Agents usually have a name, not a bioguide ID.
+- `get_transactions`: `min_value` is documented as available on every plan (it was gated to Pro until the backend change on 2026-08-01), and the `page` parameter now documents the plan-limited paging depth (Free 20 pages, Starter 100, Pro+ unlimited) plus the CSV export endpoint for bulk pulls.
+- Pro-gated parameter descriptions now say the call is rejected rather than "omitted or ignored on Free", which was wrong and could lead an agent to pass them expecting them to be dropped.
+- README documents the free/premium split, the grandfather promise, and the exact payload an agent receives at a paywall. Removed a `get_key_usage` row that documented a tool the server has never registered — its operation is served by `check_usage`.
+
 ## [1.11.0] — 2026-07-24
 
 ### Added
