@@ -12,18 +12,49 @@ const { version: PKG_VERSION } = JSON.parse(
   readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
 ) as { version: string }
 
+export type RequiredPlan = 'starter' | 'pro' | 'business' | 'enterprise' | 'higher'
+
 // Structured payload the MCP returns when an upstream call needs a plan
 // upgrade. The LLM router can read the JSON shape and surface the upgrade
 // path to the user cleanly (e.g. "you need Business for sentiment scores,
 // upgrade at form4api.com/dashboard/billing") instead of swallowing an
 // opaque 402 text. PLAN_MCP_DEFENSE Decision 1 (2026-06-01).
+//
+// `message` is the backend's own text, verbatim. That matters: the API
+// explains each gate specifically (which page depth was exceeded, which
+// filter param is Pro-only, that /v1/transactions/export exists for bulk
+// pulls), and that detail is far more useful to a calling agent than any
+// sentence this client could synthesise. `unlocks` adds what the target plan
+// buys, so the agent can relay a complete upgrade pitch in one turn instead
+// of making the user go read the pricing page to find out.
 export interface UpgradeRequiredPayload {
   error: 'upgrade_required'
-  required_plan: 'pro' | 'business' | 'enterprise' | 'higher'
+  required_plan: RequiredPlan
   current_plan?: string
   message: string
+  unlocks?: string
   upgrade_url: string
+  pricing_url: string
 }
+
+// What each paid tier adds, phrased as the answer to "why would I pay for
+// this". Kept in sync with form4api-web/app/lib/plans.ts, which is the
+// single source of truth for plan contents.
+const PLAN_UNLOCKS: Record<Exclude<RequiredPlan, 'higher'>, string> = {
+  starter:
+    'Starter ($19/mo) adds a commercial-use license, 7,500 requests/day, and 100 pages of query depth.',
+  pro:
+    'Pro ($49/mo) adds insider scorecards and career summaries, congressional trading data and convergence signals, ' +
+    'return and trade-size filters, unlimited query depth, and 50,000 requests/day.',
+  business:
+    'Business ($149/mo) adds cluster-buy signals and sentiment scores, 13F institutional holdings and managers, ' +
+    'Form 144 notices, bulk CSV export, and 250,000 requests/day.',
+  enterprise:
+    'Enterprise ($499/mo) adds unlimited requests, unlimited webhooks, and Slack support with an SLA.',
+}
+
+const PRICING_URL = 'https://www.form4api.com/pricing'
+const BILLING_URL = 'https://www.form4api.com/dashboard/billing'
 
 export class Form4ApiError extends Error {
   constructor(
@@ -77,32 +108,54 @@ export class Form4ApiClient {
     if (!res.ok) {
       let code: string | undefined
       let message = res.statusText
-      let currentPlan: string | undefined
+      let upgradeUrl: string | undefined
 
       try {
-        const body = await res.json() as { code?: string; message?: string; error?: string; currentPlan?: string }
-        code = body.code
-        message = body.message ?? body.error ?? message
-        currentPlan = body.currentPlan
+        // The API wraps every error as { error: { code, message, requestId,
+        // upgradeUrl? } }. Older/edge responses (and any non-API proxy in
+        // front of us) may send those fields flat, so accept both shapes —
+        // reading only the flat shape silently produced "[object Object]"
+        // for every error the client didn't special-case.
+        const body = await res.json() as {
+          error?: { code?: string; message?: string; upgradeUrl?: string } | string
+          code?: string
+          message?: string
+        }
+        const detail = typeof body.error === 'object' && body.error !== null ? body.error : undefined
+
+        code = detail?.code ?? body.code
+        upgradeUrl = detail?.upgradeUrl
+        message =
+          detail?.message ??
+          body.message ??
+          (typeof body.error === 'string' ? body.error : undefined) ??
+          message
       } catch {
         // ignore parse error; use status text
       }
 
-      if (res.status === 402) {
-        const requiredPlan = this.requiredPlanFromCode(code)
-        const planDisplay = this.planDisplayName(requiredPlan)
+      // 402 = the endpoint itself is above the caller's plan (PlanGuardMiddleware,
+      // and the /v1/transactions page-depth limit). 403 = the endpoint is allowed
+      // but a specific parameter is Pro-only (PRO_TIER_REQUIRED, the only 403 the
+      // API emits). Both are "pay to proceed", so both get the structured payload
+      // rather than a bare error string.
+      if (res.status === 402 || res.status === 403) {
+        const requiredPlan = this.requiredPlanFrom(code, message)
+        const currentPlan = this.currentPlanFrom(message)
         const payload: UpgradeRequiredPayload = {
           error: 'upgrade_required',
           required_plan: requiredPlan,
-          current_plan: currentPlan,
-          message: `This tool requires the ${planDisplay} plan. ${currentPlan ? `Your current plan is ${currentPlan}.` : ''} Upgrade in the Form4API dashboard.`,
-          upgrade_url: 'https://www.form4api.com/dashboard/billing',
+          ...(currentPlan ? { current_plan: currentPlan } : {}),
+          message,
+          ...(requiredPlan !== 'higher' ? { unlocks: PLAN_UNLOCKS[requiredPlan] } : {}),
+          upgrade_url: upgradeUrl ?? BILLING_URL,
+          pricing_url: PRICING_URL,
         }
         // The structured payload is JSON-encoded into the error message so
         // the MCP server's text-channel response carries the full shape.
         // The LLM router parses the JSON back out and surfaces the upgrade
         // link directly to the user. PLAN_MCP_DEFENSE Decision 1.
-        throw new Form4ApiError(JSON.stringify(payload), 402, code, payload)
+        throw new Form4ApiError(JSON.stringify(payload), res.status, code, payload)
       }
 
       if (res.status === 429) {
@@ -135,20 +188,43 @@ export class Form4ApiClient {
     return res.json() as Promise<T>
   }
 
-  private requiredPlanFromCode(code?: string): 'pro' | 'business' | 'enterprise' | 'higher' {
-    if (!code) return 'higher'
-    if (code.includes('BUSINESS')) return 'business'
-    if (code.includes('PRO')) return 'pro'
-    if (code.includes('ENTERPRISE')) return 'enterprise'
-    return 'higher'
+  // The error code alone is often not enough: PlanGuardMiddleware returns the
+  // same PLAN_REQUIRED code for every tier and names the tier only in the
+  // message ("This endpoint requires the Business plan or higher"). So try the
+  // code first, where it is explicit (PRO_TIER_REQUIRED), then the message.
+  //
+  // The message patterns are deliberately anchored on upgrade phrasing rather
+  // than "any plan name in the text" — the page-depth message names the
+  // caller's CURRENT plan first ("beyond the Free plan's pagination depth"),
+  // so a naive first-match would read that as the required plan.
+  private requiredPlanFrom(code?: string, message?: string): RequiredPlan {
+    if (code) {
+      if (code.includes('BUSINESS')) return 'business'
+      if (code.includes('ENTERPRISE')) return 'enterprise'
+      if (code.includes('PRO')) return 'pro'
+      if (code.includes('STARTER')) return 'starter'
+    }
+
+    const named =
+      message?.match(/requires the (\w+) plan/i)?.[1] ??
+      message?.match(/\b(\w+) plan or higher/i)?.[1]
+
+    switch (named?.toLowerCase()) {
+      case 'starter': return 'starter'
+      case 'pro': return 'pro'
+      case 'business': return 'business'
+      case 'enterprise': return 'enterprise'
+      default: return 'higher'
+    }
   }
 
-  private planDisplayName(plan: 'pro' | 'business' | 'enterprise' | 'higher'): string {
-    switch (plan) {
-      case 'pro': return 'Pro ($49/mo)'
-      case 'business': return 'Business ($149/mo)'
-      case 'enterprise': return 'Enterprise ($499/mo)'
-      default: return 'a higher'
-    }
+  // Both gate messages state the caller's plan, in two different shapes:
+  // "Your current plan is Free." (PlanGuardMiddleware) and "beyond the Free
+  // plan's pagination depth" (the page-depth limit).
+  private currentPlanFrom(message?: string): string | undefined {
+    return (
+      message?.match(/current plan is (\w+)/i)?.[1] ??
+      message?.match(/beyond the (\w+) plan's/i)?.[1]
+    )
   }
 }

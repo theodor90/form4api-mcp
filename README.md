@@ -143,7 +143,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | Tool | Description | Plan |
 |---|---|---|
 | `research_company` | Bundled insider-research context for one ticker in a single call — company profile, recent transactions, cluster signals, sentiment, and a computed buy/sell direction summary. Replaces 4 separate calls and degrades gracefully when a section needs a higher plan | Free (signals/sentiment sections need Business) |
-| `get_transactions` | Search insider transactions — filter by ticker, insider, date range, transaction codes or whole categories (`exclude_category=derivatives`), 10b5-1 plan trades, or use `significant=true` for real discretionary buys/sells only. Pro adds trade-size screening (`min_value`, `min_shares`) and post-trade-return screening (`min_return_1d`…`max_return_6m`, `has_returns`; returns are fractions, 0.05 = +5%). Free tier can filter on `inst_ownership_trend` (13F ownership trend) | Free |
+| `get_transactions` | Search insider transactions — filter by ticker, insider, date range, transaction codes or whole categories (`exclude_category=derivatives`), 10b5-1 plan trades, a dollar floor (`min_value`), the 13F ownership trend (`inst_ownership_trend`), or use `significant=true` for real discretionary buys/sells only. Pro adds the remaining trade-size screens (`max_value`, `min_shares`, `max_shares`) and post-trade-return screening (`min_return_1d`…`max_return_6m`, `has_returns`; returns are fractions, 0.05 = +5%). Paging depth is plan-limited — see Plans | Free |
 | `get_recent_filings` | Most recent Form 4 filings, optionally filtered by ticker | Free |
 | `get_filing` | Single filing by accession number | Free |
 | `get_insider_profile` | Insider profile — name, title, director/officer/10pct owner flags | Free |
@@ -187,7 +187,6 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | Tool | Description | Plan |
 |---|---|---|
 | `check_usage` | Your API key usage stats and current plan | Free |
-| `get_key_usage` | Same data, OpenAPI-shape response | Free |
 | `get_key_activity` | Recent API requests for this key | Free |
 | `get_usage_history` | Daily request counts for the last N days | Free |
 | `search_insiders` | Substring search on insider names | Free |
@@ -273,6 +272,10 @@ The MCP wraps the same backend as all of the above — every fact your LLM cites
 
 ## Plans
 
+**21 of the 34 tools work on the free plan, and every tool that is free today stays free.**
+New premium capability gets tiered as it ships; nothing that already works on your key is
+taken away later.
+
 | Tool | Free | Pro | Business |
 |---|---|---|---|
 | `get_transactions`, `get_recent_filings`, `get_filing` | ✓ | ✓ | ✓ |
@@ -284,10 +287,35 @@ The MCP wraps the same backend as all of the above — every fact your LLM cites
 | `list_congress_trades` | ✓ (30-day disclosure window) | ✓ (unlimited history) | ✓ (unlimited history) |
 | `list_congress_politicians`, `get_congress_politician`, `get_congress_ticker_rollup`, `get_convergence_signals` | — | ✓ | ✓ |
 | Requests/day | 500 | 50,000 | 250,000 |
+| `get_transactions` paging depth | 20 pages | unlimited | unlimited |
 
-When a tool requires a higher plan, the MCP returns a structured `upgrade_required` payload (with `required_plan` and `upgrade_url`) so the LLM can surface the path to you directly. No mid-conversation 402 confusion.
+For a bulk historical pull, use the REST `/v1/transactions/export` endpoint (Business) rather
+than paging — it streams the whole filtered set as CSV in one request.
 
-Upgrade at [form4api.com/dashboard/billing](https://www.form4api.com/dashboard/billing).
+### What your agent sees at a paywall
+
+A gated call never surfaces a bare HTTP error. The MCP returns a structured
+`upgrade_required` payload so the model can explain the situation and the fix in one turn:
+
+```json
+{
+  "error": "upgrade_required",
+  "required_plan": "business",
+  "current_plan": "Free",
+  "message": "This endpoint requires the Business plan or higher. Your current plan is Free.",
+  "unlocks": "Business ($149/mo) adds cluster-buy signals and sentiment scores, 13F institutional holdings and managers, Form 144 notices, bulk CSV export, and 250,000 requests/day.",
+  "upgrade_url": "https://www.form4api.com/dashboard/billing",
+  "pricing_url": "https://www.form4api.com/pricing"
+}
+```
+
+`message` is the API's own explanation, kept verbatim — it names the specific limit or
+parameter that stopped the call, which is usually what the model needs to suggest a working
+alternative. The same shape is returned when a Pro-only *parameter* is used on an otherwise
+free tool, so the model can simply retry without that filter.
+
+Upgrade at [form4api.com/dashboard/billing](https://www.form4api.com/dashboard/billing), or
+compare tiers at [form4api.com/pricing](https://www.form4api.com/pricing).
 
 ---
 
