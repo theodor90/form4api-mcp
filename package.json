@@ -1,6 +1,6 @@
 {
   "name": "form4api-mcp",
-  "version": "1.12.0",
+  "version": "1.12.1",
   "mcpName": "io.github.theodor90/form4api-mcp",
   "description": "MCP server for Form4API — SEC Form 4 insider trading data. Lets Claude / Cursor / Windsurf / Zed query real-time US insider trading data via natural language.",
   "keywords": [
@@ -51,7 +51,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
-    "test": "node test/mcp-test.mjs && node test/client-errors.mjs",
+    "test": "node test/mcp-test.mjs && node test/client-errors.mjs && node test/generated-paths.mjs",
     "codegen": "node codegen/generate.mjs",
     "codegen:check": "node codegen/check.mjs",
     "prepublishOnly": "npm run build"

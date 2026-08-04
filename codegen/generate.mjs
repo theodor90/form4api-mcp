@@ -151,7 +151,7 @@ function handlerBody(method, pathTemplate, params) {
   } else {
     let parts = pathTemplate
     for (const pp of pathParams) {
-      parts = parts.replace(`{${pp}}`, '\\${encodeURIComponent(String(input.' + pp + '))}')
+      parts = parts.replace(`{${pp}}`, '${encodeURIComponent(String(input.' + pp + '))}')
     }
     urlExpr = '`' + parts + '`'
   }
