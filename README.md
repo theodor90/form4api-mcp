@@ -321,11 +321,11 @@ compare tiers at [form4api.com/pricing](https://www.form4api.com/pricing).
 
 ## Data coverage
 
-- **1M+ Form 4 transactions** from SEC EDGAR
-- **475K+ filings** across all reporting companies
+- **1.3M+ Form 4 transactions** from SEC EDGAR
+- **596K+ filings** across all reporting companies
 - **118K+ Form 144** notice-of-proposed-sale filings (Business+)
-- **16M+ Form 13F-HR holdings** across 44K+ filings, $72T+ AUM (Business+)
-- **2.5+ years of history** (since 2023-10)
+- **43M+ Form 13F-HR holdings** across 114K+ filings, $71T+ AUM in the latest complete quarter (Business+)
+- **2.8+ years of history** (since 2023-10)
 - **10b5-1 plan flag** on every transaction
 - **Amendment-aware** — Form 4/A reconciled
 - **Congressional STOCK Act trades** (Pro+) — House Clerk PTR + Senate eFD, digital filings, amounts always shown as disclosed ranges (`amountLow`/`amountHigh`), never a fabricated midpoint, plus `disclosureLagDays` on every trade (up to 45 days under the STOCK Act)
