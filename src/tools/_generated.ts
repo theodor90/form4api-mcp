@@ -35,7 +35,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   ticker: z.string().describe(`Company ticker symbol, case-insensitive (e.g. "AAPL").`),
   date: z.string().optional().describe(`Exact signal date to explain, format YYYY-MM-DD. Omit to explain the company's most recent signal. Returns 404 SIGNAL_NOT_FOUND if no signal exists for the given (or most recent) date.`),
     },
-    handler: async (client, input) => client.get<unknown>(`/v1/signals/\${encodeURIComponent(String(input.ticker))}/explain`, {
+    handler: async (client, input) => client.get<unknown>(`/v1/signals/${encodeURIComponent(String(input.ticker))}/explain`, {
         date: input.date as never,
       }),
   },
@@ -50,7 +50,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   top_tickers: z.number().int().optional().describe(`Number of most-traded tickers to include. Defaults to 10, maximum 50.`),
   recent_trades: z.number().int().optional().describe(`Number of most recent trades to include. Defaults to 20, maximum 100.`),
     },
-    handler: async (client, input) => client.get<unknown>(`/v1/congress/politicians/\${encodeURIComponent(String(input.idOrSlug))}`, {
+    handler: async (client, input) => client.get<unknown>(`/v1/congress/politicians/${encodeURIComponent(String(input.idOrSlug))}`, {
         top_tickers: input.top_tickers as never,
         recent_trades: input.recent_trades as never,
       }),
@@ -65,7 +65,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   ticker: z.string().describe(`Ticker symbol, case-insensitive (e.g. "AAPL").`),
   window_days: z.number().int().optional().describe(`Trailing window in days ending now, applied to transactionDate. Omit for all-time.`),
     },
-    handler: async (client, input) => client.get<unknown>(`/v1/congress/tickers/\${encodeURIComponent(String(input.ticker))}`, {
+    handler: async (client, input) => client.get<unknown>(`/v1/congress/tickers/${encodeURIComponent(String(input.ticker))}`, {
         window_days: input.window_days as never,
       }),
   },
@@ -129,7 +129,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     schema: {
   cik: z.string().describe(`Insider's SEC CIK, exact match.`),
     },
-    handler: async (client, input) => client.get<unknown>(`/v1/insiders/\${encodeURIComponent(String(input.cik))}/scorecard`),
+    handler: async (client, input) => client.get<unknown>(`/v1/insiders/${encodeURIComponent(String(input.cik))}/scorecard`),
   },
   {
     name: 'get_key_activity',
