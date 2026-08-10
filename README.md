@@ -12,8 +12,8 @@ An [MCP](https://modelcontextprotocol.io) server that exposes the hosted [Form4A
 
 - 🛡 **Amendment-aware** — Form 4/A amendments are reconciled automatically. No double-counting when an insider corrects a filing.
 - 🎯 **10b5-1 clean** — every transaction flagged as pre-scheduled (10b5-1 plan) or discretionary. Cluster signals exclude planned trades by construction.
-- 📜 **Form 144 intent-to-sell** — 23K+ Form 144 filings indexed. Catch insider sales ~2 days before they hit Form 4.
-- 🏛 **Institutional × insider join** — every transaction carries the current 13F-HR ownership context (top-3 holders, AUM trend). No competitor at any price point joins both sides in one query.
+- 📜 **Form 144 intent-to-sell** — 118K+ Form 144 filings indexed. Catch insider sales ~2 days before they hit Form 4.
+- 🏛 **Institutional × insider join** — every transaction carries the current 13F-HR ownership context (top-3 holders, AUM trend) in the same response: no second call, no client-side join. Among the self-serve SEC data APIs we've surveyed, none return both sides in one query — sec-api.io and Kaleidoscope both ship 13F and insider data as separate endpoints.
 
 ---
 
@@ -245,7 +245,7 @@ Some MCPs in this space scrape free public sites (e.g. openinsider.com) for Form
 |---|---|---|
 | Form 4/A amendment handling | ✅ reconciled automatically | ❌ double-counts |
 | 10b5-1 plan flag | ✅ exposed on every transaction | ❌ planned + discretionary mixed |
-| Form 144 intent-to-sell | ✅ 23K+ filings | ❌ not exposed |
+| Form 144 intent-to-sell | ✅ 118K+ filings | ❌ not exposed |
 | Institutional × insider join | ✅ top-3 holders + AUM trend per transaction | ❌ insider only |
 | Sentiment (10b5-1 excluded) | ✅ MSPR-style score | ❌ planned trades pollute score |
 | Source resilience | ✅ hosted API contract | ❌ breaks when source HTML changes |
@@ -323,7 +323,7 @@ compare tiers at [form4api.com/pricing](https://www.form4api.com/pricing).
 
 - **1M+ Form 4 transactions** from SEC EDGAR
 - **475K+ filings** across all reporting companies
-- **23K+ Form 144** notice-of-proposed-sale filings (Business+)
+- **118K+ Form 144** notice-of-proposed-sale filings (Business+)
 - **16M+ Form 13F-HR holdings** across 44K+ filings, $72T+ AUM (Business+)
 - **2.5+ years of history** (since 2023-10)
 - **10b5-1 plan flag** on every transaction
