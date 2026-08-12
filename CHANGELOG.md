@@ -24,6 +24,18 @@ This ensures clients can always see what tools are available in a given version 
 
 ---
 
+## [1.13.0] — 2026-08-12
+
+**Tool count: 35** (+1: `list_filings`). Free tools 21 → 22.
+
+### Added
+- `list_filings` (generated) — Form 4 filings as a paginated list, newest filed first, filtered by `ticker`, `cik`, or a filed-date window. Free. Wraps `GET /v1/filings`, which shipped in the backend on 2026-08-04 after four distinct users had 404'd that path 382 times over 90 days. The codegen pass on 2026-08-10 did not pick it up, so the endpoint existed for eight days with no tool; found by running `codegen:check` during an unrelated copy sweep, which is not a reliable way to notice a missing tool.
+
+### Changed
+- `list_congress_trades` and its `chamber` parameter now state that **coverage is U.S. House only**. Senate eFD returns 403 to datacenter traffic, so `chamber=Senate` is a valid filter over data we do not have; it matches nothing and the response carries `X-Coverage-Note: chamber-not-covered` (insiderapi #215).
+
+  This is the change worth upgrading for. An assistant reading the previous description would filter by Senate, receive an empty array, and report *"no Senate trades found"* to its user — stating as fact something that is an artifact of our ingestion rather than of Congress. An empty result is now never ambiguous.
+
 ## [1.12.0] — 2026-08-01
 
 Tool count unchanged at 34. No tools added, renamed, or removed.
