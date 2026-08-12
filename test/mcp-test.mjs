@@ -1,7 +1,7 @@
 /**
  * MCP protocol test — spawns the server and verifies:
  *  1. initialize handshake
- *  2. tools/list returns all 34 tools with correct names
+ *  2. tools/list returns all 35 tools with correct names
  *  3. prompts/list returns all 6 recipe prompts
  *  4. prompts/get returns rendered messages for a sample of prompts
  *  5. (optional) live tool call if FORM4API_KEY is set
@@ -60,6 +60,10 @@ const EXPECTED_TOOLS = [
   'get_congress_politician',
   'get_congress_ticker_rollup',
   'get_convergence_signals',
+  // Auto-generated after the /v1/filings listing endpoint shipped (insiderapi
+  // #206, 2026-08-04). Missed by the 2026-08-10 codegen pass and caught by the
+  // 2026-08-12 coverage sweep — the endpoint existed for 8 days with no tool.
+  'list_filings',
 ]
 
 // Recipe prompts (v1.9.0, 2026-07-11) — the MCP "prompts" capability.
@@ -144,11 +148,11 @@ async function runTest() {
     server.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n')
 
     // ── Test 2: tools/list ────────────────────────────────────────────────
-    console.log('\n[2] tools/list — 34 tools registered')
+    console.log('\n[2] tools/list — 35 tools registered')
     const listRes = await send('tools/list', {})
     const toolNames = (listRes.result?.tools ?? []).map(t => t.name)
     assert(!listRes.error, 'no error in tools/list response')
-    assert(toolNames.length === 34, `34 tools returned (got ${toolNames.length})`)
+    assert(toolNames.length === 35, `35 tools returned (got ${toolNames.length})`)
     for (const name of EXPECTED_TOOLS) {
       assert(toolNames.includes(name), `tool "${name}" present`)
     }
