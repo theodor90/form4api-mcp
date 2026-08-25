@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.theodor90/form4api-mcp",
   "title": "Form4API — SEC Insider Trading",
-  "description": "Real-time SEC Form 4 insider trading + Form 144, 13F-HR & congressional STOCK Act data. 35 tools + 6 research prompts.",
-  "version": "1.13.0",
+  "description": "Real-time SEC Form 4 insider trading + Form 144, 13F-HR & congressional STOCK Act data. 36 tools + 6 research prompts.",
+  "version": "1.14.0",
   "websiteUrl": "https://www.form4api.com",
   "repository": {
     "url": "https://github.com/theodor90/form4api-mcp",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "form4api-mcp",
-      "version": "1.13.0",
+      "version": "1.14.0",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {
