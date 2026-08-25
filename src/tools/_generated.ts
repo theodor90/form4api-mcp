@@ -102,6 +102,23 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     handler: async (client, input) => client.get<unknown>('/v1/data-quality'),
   },
   {
+    name: 'get_insider_directory',
+    operationId: 'GetInsiderDirectory',
+    method: 'GET',
+    path: '/v1/insiders/directory',
+    description: "Browse insiders alphabetically by surname. Returns the A-Z rail with a count per letter, plus one page of insiders under the\nrequested letter. Omit `letter` to get the rail and totals with no rows.\n\nNames come from EDGAR surname-first (\"HENNEMAN JOHN B III\"), so alphabetical order\nis order by surname. Casing in the source is inconsistent and is not normalised here.\n\nThis lists only insiders with at least 3 non-superseded transactions, capped at the\n5,000 most active — the same set as the insiders sitemap shard, so the two cannot\ndrift. To find someone outside that set, use GET /v1/insiders?name= which searches\nevery filer. Rebuilt daily; `refreshedAt` reports when. Not plan-gated.\n\nOne row per FILER GROUP. A fund group files a single Form 4 listing several\nreporting owners — the fund, its GP, its management company — and each is a real\nEDGAR filer with its own CIK. Listing all of them spent about 11% of this capped\nsurface describing the same actors more than once, so browse shows one per group\nand `filerGroupSize` says how many others share those exact transactions. The\nothers are not hidden: each keeps its own profile and is still returned by\nGET /v1/insiders?name=.",
+    schema: {
+  letter: z.string().optional().describe(`Single letter A-Z to list, or "#" for names that do not begin with a letter. Omit to get the A-Z rail and totals without any rows.`),
+  page: z.number().int().optional().describe(`1-based page number within the letter. Defaults to 1.`),
+  per_page: z.number().int().optional().describe(`Rows per page. Defaults to 200, maximum 500.`),
+    },
+    handler: async (client, input) => client.get<unknown>('/v1/insiders/directory', {
+        letter: input.letter as never,
+        page: input.page as never,
+        per_page: input.per_page as never,
+      }),
+  },
+  {
     name: 'get_insider_leaderboard',
     operationId: 'GetInsiderLeaderboard',
     method: 'GET',
