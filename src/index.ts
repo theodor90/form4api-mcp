@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Form4ApiClient, Form4ApiError } from './client.js'
+import { formatToolResult } from './format.js'
 import { getTransactionsSchema, getTransactions } from './tools/transactions.js'
 import { getRecentFilingsSchema, getFilingSchema, getRecentFilings, getFiling } from './tools/filings.js'
 import { getInsiderProfileSchema, getInsiderTransactionsSchema, getInsiderProfile, getInsiderTransactions } from './tools/insiders.js'
@@ -50,7 +51,7 @@ const server = new McpServer(
 
 function wrapResult(data: unknown): { content: Array<{ type: 'text'; text: string }> } {
   return {
-    content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+    content: [{ type: 'text', text: formatToolResult(data) }],
   }
 }
 
