@@ -1,7 +1,7 @@
 /**
  * MCP protocol test — spawns the server and verifies:
  *  1. initialize handshake
- *  2. tools/list returns all 35 tools with correct names
+ *  2. tools/list returns all 36 tools with correct names
  *  3. prompts/list returns all 6 recipe prompts
  *  4. prompts/get returns rendered messages for a sample of prompts
  *  5. (optional) live tool call if FORM4API_KEY is set
@@ -47,6 +47,8 @@ const EXPECTED_TOOLS = [
   // Auto-generated after scorecard + leaderboard endpoints shipped (2026-06-13)
   'get_insider_scorecard',
   'get_insider_leaderboard',
+  // Auto-generated after the A-Z insider directory shipped (insiderapi #238)
+  'get_insider_directory',
   // Auto-generated after the public /v1/stats endpoint shipped (2026-06-19)
   'get_public_stats',
   // Flagship bundled research tool (2026-06-25)
@@ -152,7 +154,7 @@ async function runTest() {
     const listRes = await send('tools/list', {})
     const toolNames = (listRes.result?.tools ?? []).map(t => t.name)
     assert(!listRes.error, 'no error in tools/list response')
-    assert(toolNames.length === 35, `35 tools returned (got ${toolNames.length})`)
+    assert(toolNames.length === 36, `36 tools returned (got ${toolNames.length})`)
     for (const name of EXPECTED_TOOLS) {
       assert(toolNames.includes(name), `tool "${name}" present`)
     }
