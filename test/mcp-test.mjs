@@ -150,7 +150,7 @@ async function runTest() {
     server.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n')
 
     // ── Test 2: tools/list ────────────────────────────────────────────────
-    console.log('\n[2] tools/list — 35 tools registered')
+    console.log('\n[2] tools/list — 36 tools registered')
     const listRes = await send('tools/list', {})
     const toolNames = (listRes.result?.tools ?? []).map(t => t.name)
     assert(!listRes.error, 'no error in tools/list response')

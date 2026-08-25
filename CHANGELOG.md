@@ -24,6 +24,25 @@ This ensures clients can always see what tools are available in a given version 
 
 ---
 
+## [1.14.0] — 2026-08-25
+
+**Tool count: 36** (+1: `get_insider_directory`). Free tools 22 → 23; gated unchanged at 13.
+
+### Added
+- `get_insider_directory` (generated) — browse insiders alphabetically by surname: the A–Z rail with a count per letter, plus one page of insiders under the requested letter. Free. Wraps `GET /v1/insiders/directory`, which shipped in the backend as insiderapi #238 and had no MCP tool until now. Returns **one row per filer group**: a fund group files a single Form 4 listing several reporting owners — the fund, its GP, its management company — each a real EDGAR filer with its own CIK, and listing all of them spent about 11% of a capped surface describing the same actors more than once.
+
+  Found by `codegen:check` failing on `main` with a populated diff body, which distinguishes real drift from the documented Windows CRLF artefact. That is the second release running where a missing tool surfaced only from an unrelated `codegen:check` run rather than from anything watching the spec.
+
+### Changed
+- **List results render as a table instead of pretty-printed JSON.** Every tool returned `JSON.stringify(data, null, 2)`; for the list endpoints that is a bad trade. A 100-row `get_transactions` response was ~2,100 lines and ~15k tokens, and roughly 60% of it was the same nineteen key names repeated a hundred times. A pipe table states each key once, in the header: **60,302 → 22,145 characters, 2.7×**, a figure `test/format.mjs` prints on every run so it stays honest as the shape changes.
+
+  That saving is spent from the caller's context window rather than ours, and MCP is this product's highest-reach channel, so two limits are deliberate. **No columns are dropped** — a field the model cannot see is a field the user cannot ask about, and these tools are generated from an evolving spec, so a hand-maintained column list would rot silently. **Rows carrying populated nested collections keep their old JSON output exactly** — `get_signals` returns each signal with its `transactions[]` attached, and those are the substance of the answer.
+
+  Cells truncate at 80 characters. Measured against production before shipping: 41 of 75,833 insider names (0.05%), 0 of 1,345,485 security titles, 4 of 20,313 company names.
+
+### Fixed
+- **Numbers below 1 keep four decimals rather than two.** `formatCell` rounded every non-integer to 2dp with the reasoning that money reads fine that way. It does; returns do not. Return and hit-rate fields are stored as **fractions** — the generated spec says so on every scored endpoint — so at 2dp `avgReturn3m` 0.0234 printed `0.02` (+2%, not +2.34%), 0.109 printed `0.11`, and a −0.30% return printed the nonsense `-0.00`. `GET /v1/insiders/leaderboard` returns an array of flat rows carrying exactly those fields, so it takes the new table path and its entire ranking column would have collapsed into ties.
+
 ## [1.13.0] — 2026-08-12
 
 **Tool count: 35** (+1: `list_filings`). Free tools 21 → 22.
