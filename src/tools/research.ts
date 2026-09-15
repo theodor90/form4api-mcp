@@ -138,6 +138,9 @@ export async function researchCompany(
     'Use get_company_insiders to see the full roster of insiders who have ever filed for this company.',
     'Call get_signals without a ticker filter to surface cross-market cluster signals and see if this ticker stands out.',
     'Use get_sentiment with a longer months window (e.g. 24) to see multi-year sentiment trend.',
+    'Call get_holdings with this ticker to see current institutional 13F-HR ownership (Business plan).',
+    'Call get_congress_ticker_rollup with this ticker to see which politicians have traded it and their net buy/sell counts (Pro plan).',
+    'Call get_convergence_signals to check whether this ticker shows an insider cluster-buy x congressional-purchase overlap (Pro plan).',
   ]
 
   return {

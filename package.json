@@ -2,7 +2,7 @@
   "name": "form4api-mcp",
   "version": "1.14.0",
   "mcpName": "io.github.theodor90/form4api-mcp",
-  "description": "MCP server for Form4API — SEC Form 4 insider trading data. Lets Claude / Cursor / Windsurf / Zed query real-time US insider trading data via natural language.",
+  "description": "MCP server for Form4API — SEC Form 4 insider trading, Form 144 intent-to-sell, institutional 13F-HR, and congressional STOCK Act trading data, including the insider/Congress convergence signal. Lets Claude / Cursor / Windsurf / Zed query real-time US insider and congressional trading data via natural language.",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -24,6 +24,8 @@
     "form-144",
     "13f",
     "13f-hr",
+    "congress",
+    "stock-act",
     "webhooks",
     "financial-data",
     "fintech"

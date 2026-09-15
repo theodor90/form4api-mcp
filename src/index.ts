@@ -30,13 +30,14 @@ const { version } = JSON.parse(
   readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
 ) as { version: string }
 
-const SERVER_INSTRUCTIONS = `Form4API insider trading data: amendment-aware Form 4 transactions, 10b5-1 plan flags, Form 144 intent-to-sell, institutional 13F-HR overlay.
+const SERVER_INSTRUCTIONS = `Form4API insider trading data: amendment-aware Form 4 transactions, 10b5-1 plan flags, Form 144 intent-to-sell, institutional 13F-HR overlay, and congressional STOCK Act trades — including the insider-cluster-buy x congressional-purchase convergence signal.
 
 Start with \`research_company\` to get bundled insider context for any ticker. If something fails, run \`verify_setup\` first. Try \`get_public_stats\` without a key to preview the data.
 
 Try these prompts:
 • "What insider trades happened at NVDA in the last 30 days, excluding 10b5-1 plans?"
 • "Show me cluster buy signals from this week — multiple insiders at the same company trading in the same direction."
+• "Which politicians traded AAPL, and does that overlap with any insider cluster-buy convergence?"
 • "Call get_public_stats to show me our current data coverage — no API key required."`
 
 const server = new McpServer(
