@@ -24,6 +24,15 @@ This ensures clients can always see what tools are available in a given version 
 
 ---
 
+## [1.14.1] — 2026-09-15
+
+Tool count unchanged at 36. No tools added, renamed, or removed.
+
+### Changed
+- **Server instructions, package description, and `research_company` no longer read Form-4-only.** `SERVER_INSTRUCTIONS` and the npm package description led with Form 4 insider trading alone, so an agent evaluating the server, or a directory scraper reading `package.json`, had no way to know Form 144 intent-to-sell, 13F-HR institutional holdings, and congressional STOCK Act data live here too, or that an insider/Congress convergence signal is available.
+- `research_company` — the tool the server tells agents to start with — now names `get_holdings`, `get_congress_ticker_rollup`, and `get_convergence_signals` as explicit follow-ups. Kept out of the initial concurrent fetch since two of the three are plan-gated (Business/Pro): bundling them would mean every Free/Starter call eats guaranteed 402s on tickers with no 13F or congress activity.
+- Added `congress` and `stock-act` keywords to `package.json` so the package surfaces in directory searches for those terms.
+
 ## [1.14.0] — 2026-08-25
 
 **Tool count: 36** (+1: `get_insider_directory`). Free tools 22 → 23; gated unchanged at 13.
