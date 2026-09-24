@@ -3,7 +3,7 @@ import type { Form4ApiClient } from '../client.js'
 import type { Transaction } from '../types.js'
 
 export const getTransactionsSchema = z.object({
-  ticker: z.string().optional().describe('Stock ticker symbol, case-insensitive, e.g. AAPL or aapl.'),
+  ticker: z.string().optional().describe('Stock ticker symbol, case-insensitive, e.g. AAPL or aapl. Also accepts a comma-separated list of up to 25 symbols (e.g. "AAPL,MSFT") to match any of them in one call; tokens are trimmed and upper-cased, empty tokens are ignored, and more than 25 symbols returns 400.'),
   cik: z.string().optional().describe('Company CIK number — SEC\'s numeric filer identifier, e.g. 0000320193. Leading zeros optional.'),
   insider_cik: z.string().optional().describe('Insider CIK number — SEC\'s numeric filer identifier, e.g. 0001214128. Leading zeros optional.'),
   code: z
@@ -98,6 +98,8 @@ export const getTransactionsSchema = z.object({
     .describe('Filter by the trailing quarter-over-quarter trend in institutional (13F) ownership of the underlying company. No effect if institutional-ownership enrichment is disabled server-side; rows where the trend was suppressed for insufficient 13F coverage still match "stable".'),
   from: z.string().optional().describe('Start date, inclusive, format YYYY-MM-DD (e.g. 2026-01-01). Filters on transactionDate.'),
   to: z.string().optional().describe('End date, inclusive, format YYYY-MM-DD (e.g. 2026-12-31). Filters on transactionDate.'),
+  filed_from: z.string().optional().describe('Inclusive start of the filed-date window, format YYYY-MM-DD. Filters on Filing.FiledAt (when the filing became public), not transactionDate — the two can differ by days to weeks. Use this to replay disclosures in the order the market actually saw them.'),
+  filed_to: z.string().optional().describe('Inclusive end of the filed-date window, format YYYY-MM-DD. Filters on Filing.FiledAt.'),
   page: z.number().int().min(1).optional().default(1).describe('1-based page number. Defaults to 1. Paging depth is plan-limited: Free reaches page 20, Starter page 100, Pro and above unlimited; beyond that the call returns 402 with the upgrade path. If you need the full history rather than a page of it, the REST endpoint GET /v1/transactions/export (Business plan) streams the entire filtered set as CSV in one request.'),
   per_page: z.number().int().min(1).max(100).optional().default(20).describe('Results per page. Defaults to 20, maximum 100.'),
 })
@@ -135,6 +137,8 @@ export async function getTransactions(client: Form4ApiClient, input: GetTransact
     inst_ownership_trend: input.inst_ownership_trend,
     from: input.from,
     to: input.to,
+    filed_from: input.filed_from,
+    filed_to: input.filed_to,
     page: input.page,
     per_page: input.per_page,
   })
