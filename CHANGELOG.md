@@ -24,6 +24,20 @@ This ensures clients can always see what tools are available in a given version 
 
 ---
 
+## [1.15.0] — 2026-09-24
+
+**Tool count: 37** (+1: `list_schedule13_dg`). Free tools unchanged at 23; gated 13 → 14.
+
+### Added
+- `list_schedule13_dg` (generated) — Schedule 13D/13G >5% beneficial-ownership crossings (Business plan+). Wraps `GET /v1/ownership/13d-13g`.
+- `get_transactions` — `ticker` now documents that it accepts a comma-separated list of up to 25 symbols in one call (backend insiderapi #312), and gained `filed_from`/`filed_to` (inclusive date window on `Filing.FiledAt`, not `transactionDate`) so a caller can replay disclosures in the order the market actually saw them rather than the order the trades happened.
+- `Transaction` and `Filing` response types gained `acceptedAt` (nullable) and `documentUrl` (backend insiderapi #312).
+
+### Changed
+- 14 list endpoints now accept `limit` as an alias for `per_page` on the backend (canonical `per_page` wins on conflict); the generated tool descriptions pick this up automatically from the spec. `order` is **not** an alias for `sort` — unchanged.
+- `get_webhook_events`'s generated description now lists all five real webhook event types (`TransactionFiled`, `ClusterBuy`, `ClusterSell`, `CongressTradeFiled` (Starter+), `ConvergenceSignal` (Pro+)) with their exact `EventType`/`X-Event-Type` casing. The dotted-name forms (e.g. `signal.convergence`) that appeared in older backend descriptions were never real event names and are gone from the generated text. No hand-written tool in this repo hardcoded an event-type list — `create_webhook`/`delete_webhook` are deliberately excluded from the MCP tool surface (see `SKIP_OPERATIONS` in `codegen/generate.mjs`), so this was purely a generated-description fix.
+- `GET /v1/transactions`, `POST /v1/webhooks`, and `DELETE /v1/webhooks/{id}` now declare 400/404 responses in the spec — no client-visible behavior change, error handling here was already generic.
+
 ## [1.14.1] — 2026-09-15
 
 Tool count unchanged at 36. No tools added, renamed, or removed.

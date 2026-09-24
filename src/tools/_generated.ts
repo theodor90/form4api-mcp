@@ -74,13 +74,14 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetConvergenceSignals',
     method: 'GET',
     path: '/v1/signals/convergence',
-    description: "Insider cluster-buy x congressional-purchase convergence (Pro plan+). Returns the tickers where an insider cluster-buy (InsiderSignal.IsClusterBuy) and at least one non-superseded congressional PURCHASE happened within window_days of EACH OTHER, restricted to convergences where the MORE RECENT of the pair's two dates is within a trailing lookback_days (so this surfaces CURRENT convergences, not ancient history). DEFINITION: for each result, insider.signalDate is the SignalDate of the qualifying cluster-buy signal with the most recent date (insider.insiderCount is that same signal's count — never summed or maxed across multiple signals), and congress is every non-superseded congressional purchase that paired with at least one qualifying cluster-buy (not every purchase in the window — only the ones that actually paired). firstSeen/lastSeen are the earliest/most recent dates among all qualifying insider and congress dates for that ticker. STRENGTH is documented arithmetic, NOT a black-box or predictive/ML score: strength = (distinct congressional purchasers among the qualifying legs) x (the representative signal's insiderCount) — a plain multiplication of two observed counts, nothing more. HONESTY: every congress leg always carries both amountLow and amountHigh (STOCK Act discloses ranges, never exact figures — never combined into a fabricated midpoint) and disclosureLagDays = (disclosureDate - transactionDate); congressional trades are disclosed up to 45 days after the actual trade under the STOCK Act, so this endpoint is detection/monitoring of what insiders AND members of Congress have DISCLOSED buying, not a claim of predictive edge, alpha, or win rate — no performance numbers are computed or implied anywhere in this response. window_days and lookback_days are both caller-overridable with clamps (see each parameter's own description for the exact bounds). Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). Query runs live against the database — no caching.",
+    description: "Insider cluster-buy x congressional-purchase convergence (Pro plan+). Returns the tickers where an insider cluster-buy (InsiderSignal.IsClusterBuy) and at least one non-superseded congressional PURCHASE happened within window_days of EACH OTHER, restricted to convergences where the MORE RECENT of the pair's two dates is within a trailing lookback_days (so this surfaces CURRENT convergences, not ancient history). DEFINITION: for each result, insider.signalDate is the SignalDate of the qualifying cluster-buy signal with the most recent date (insider.insiderCount is that same signal's count — never summed or maxed across multiple signals), and congress is every non-superseded congressional purchase that paired with at least one qualifying cluster-buy (not every purchase in the window — only the ones that actually paired). firstSeen/lastSeen are the earliest/most recent dates among all qualifying insider and congress dates for that ticker. STRENGTH is documented arithmetic, NOT a black-box or predictive/ML score: strength = (distinct congressional purchasers among the qualifying legs) x (the representative signal's insiderCount) — a plain multiplication of two observed counts, nothing more. HONESTY: every congress leg always carries both amountLow and amountHigh (STOCK Act discloses ranges, never exact figures — never combined into a fabricated midpoint) and disclosureLagDays = (disclosureDate - transactionDate); congressional trades are disclosed up to 45 days after the actual trade under the STOCK Act, so this endpoint is detection/monitoring of what insiders AND members of Congress have DISCLOSED buying, not a claim of predictive edge, alpha, or win rate — no performance numbers are computed or implied anywhere in this response. window_days and lookback_days are both caller-overridable with clamps (see each parameter's own description for the exact bounds). Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.",
     schema: {
   ticker: z.string().optional().describe(`Ticker symbol, case-insensitive exact match (e.g. "AAPL"). Omit to scan every ticker.`),
   window_days: z.number().int().optional().describe(`Trailing-day window: an insider cluster-buy date and a congressional purchase date must fall within this many days of EACH OTHER (either order) to count as a qualifying pair. Defaults to 30, clamped to [1, 90].`),
   lookback_days: z.number().int().optional().describe(`How far back from now the MORE RECENT of a qualifying pair's two dates must fall to still count as a current convergence (the less-recent date in a pair can be older, as long as it's within window_days of a recent partner). Defaults to 180, clamped to [1, 730].`),
   page: z.number().int().optional().describe(`1-based page number. Defaults to 1.`),
-  per_page: z.number().int().optional().describe(`Converged tickers per page. Defaults to 100, maximum 500.`),
+  per_page: z.number().int().optional().describe(`Converged tickers per page. Defaults to 100, maximum 500. \`limit\` is accepted as an alias; if both are given, per_page wins.`),
+  limit: z.number().int().optional().describe(`Alias for per_page.`),
     },
     handler: async (client, input) => client.get<unknown>('/v1/signals/convergence', {
         ticker: input.ticker as never,
@@ -88,6 +89,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
         lookback_days: input.lookback_days as never,
         page: input.page as never,
         per_page: input.per_page as never,
+        limit: input.limit as never,
       }),
   },
   {
@@ -106,16 +108,18 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetInsiderDirectory',
     method: 'GET',
     path: '/v1/insiders/directory',
-    description: "Browse insiders alphabetically by surname. Returns the A-Z rail with a count per letter, plus one page of insiders under the\nrequested letter. Omit `letter` to get the rail and totals with no rows.\n\nNames come from EDGAR surname-first (\"HENNEMAN JOHN B III\"), so alphabetical order\nis order by surname. Casing in the source is inconsistent and is not normalised here.\n\nThis lists only insiders with at least 3 non-superseded transactions, capped at the\n5,000 most active — the same set as the insiders sitemap shard, so the two cannot\ndrift. To find someone outside that set, use GET /v1/insiders?name= which searches\nevery filer. Rebuilt daily; `refreshedAt` reports when. Not plan-gated.\n\nOne row per FILER GROUP. A fund group files a single Form 4 listing several\nreporting owners — the fund, its GP, its management company — and each is a real\nEDGAR filer with its own CIK. Listing all of them spent about 11% of this capped\nsurface describing the same actors more than once, so browse shows one per group\nand `filerGroupSize` says how many others share those exact transactions. The\nothers are not hidden: each keeps its own profile and is still returned by\nGET /v1/insiders?name=.",
+    description: "Browse insiders alphabetically by surname. Returns the A-Z rail with a count per letter, plus one page of insiders under the\nrequested letter. Omit `letter` to get the rail and totals with no rows.\n\nNames come from EDGAR surname-first (\"HENNEMAN JOHN B III\"), so alphabetical order\nis order by surname. Casing in the source is inconsistent and is not normalised here.\n\nThis lists only insiders with at least 3 non-superseded transactions, capped at the\n5,000 most active — the same set as the insiders sitemap shard, so the two cannot\ndrift. To find someone outside that set, use GET /v1/insiders?name= which searches\nevery filer. Rebuilt daily; `refreshedAt` reports when. `limit` is accepted as an alias for\n`per_page`. Not plan-gated.\n\nOne row per FILER GROUP. A fund group files a single Form 4 listing several\nreporting owners — the fund, its GP, its management company — and each is a real\nEDGAR filer with its own CIK. Listing all of them spent about 11% of this capped\nsurface describing the same actors more than once, so browse shows one per group\nand `filerGroupSize` says how many others share those exact transactions. The\nothers are not hidden: each keeps its own profile and is still returned by\nGET /v1/insiders?name=.",
     schema: {
   letter: z.string().optional().describe(`Single letter A-Z to list, or "#" for names that do not begin with a letter. Omit to get the A-Z rail and totals without any rows.`),
   page: z.number().int().optional().describe(`1-based page number within the letter. Defaults to 1.`),
-  per_page: z.number().int().optional().describe(`Rows per page. Defaults to 200, maximum 500.`),
+  per_page: z.number().int().optional().describe(`Rows per page. Defaults to 200, maximum 500. \`limit\` is accepted as an alias; if both are given, per_page wins.`),
+  limit: z.number().int().optional().describe(`Alias for per_page.`),
     },
     handler: async (client, input) => client.get<unknown>('/v1/insiders/directory', {
         letter: input.letter as never,
         page: input.page as never,
         per_page: input.per_page as never,
+        limit: input.limit as never,
       }),
   },
   {
@@ -201,7 +205,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetWebhookEvents',
     method: 'GET',
     path: '/v1/webhooks/events',
-    description: "Replay webhook delivery events since a given timestamp (default: last 24h). Returns up to 500 delivery attempts across all of the authenticated key's subscriptions since `since` (default: last 24 hours), most recent first — delivery id, subscription id, event type, attempt count, delivered-at/next-retry-at timestamps, last HTTP status code from the receiving endpoint, whether the delivery is dead (exhausted all retries), and the event payload. Use this to reconcile missed webhook deliveries (e.g. after an outage on your receiving endpoint) rather than relying solely on push delivery. `since` cannot be more than 30 days in the past. Requires a valid X-Api-Key (401 without one). `payload` is null and `payloadRedacted` is true for any event type above your current plan (congress.trade.filed requires Starter, signal.convergence requires Pro) — delivery history outlives the plan that created it, so payloads are checked against the plan you are on now, not the plan you had when you subscribed.",
+    description: "Replay webhook delivery events since a given timestamp (default: last 24h). Returns up to 500 delivery attempts across all of the authenticated key's subscriptions since `since` (default: last 24 hours), most recent first — delivery id, subscription id, event type, attempt count, delivered-at/next-retry-at timestamps, last HTTP status code from the receiving endpoint, whether the delivery is dead (exhausted all retries), and the event payload. Use this to reconcile missed webhook deliveries (e.g. after an outage on your receiving endpoint) rather than relying solely on push delivery. `since` cannot be more than 30 days in the past. Requires a valid X-Api-Key (401 without one). `eventType` on each row is the exact name accepted by POST /v1/webhooks and sent in the X-Event-Type delivery header (e.g. \"CongressTradeFiled\", \"ConvergenceSignal\" — not dotted names). `payload` is null and `payloadRedacted` is true for any event type above your current plan (CongressTradeFiled requires Starter, ConvergenceSignal requires Pro) — delivery history outlives the plan that created it, so payloads are checked against the plan you are on now, not the plan you had when you subscribed.",
     schema: {
   since: z.string().optional().describe(`Inclusive lower bound for delivery timestamps, ISO-8601 datetime. Defaults to 24 hours ago. Cannot be more than 30 days in the past (400 INVALID_RANGE).`),
     },
@@ -240,14 +244,16 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'ListCongressPoliticians',
     method: 'GET',
     path: '/v1/congress/politicians',
-    description: "Ranked rollup of politicians by congressional trade activity (Pro plan+). Returns a paginated list of politicians who have at least one non-superseded congressional trade, each with total/buy/sell counts (sells include both Sale and PartialSale; Exchange trades count only toward total) and their most recent trade's disclosure date. Ordered by total trade count descending, ties broken by most recently disclosed. Use this to discover active traders; for one politician's full profile (including their most-traded tickers and recent trades) use GET /v1/congress/politicians/{idOrSlug}. Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). Query runs live — no caching.",
+    description: "Ranked rollup of politicians by congressional trade activity (Pro plan+). Returns a paginated list of politicians who have at least one non-superseded congressional trade, each with total/buy/sell counts (sells include both Sale and PartialSale; Exchange trades count only toward total) and their most recent trade's disclosure date. Ordered by total trade count descending, ties broken by most recently disclosed. Use this to discover active traders; for one politician's full profile (including their most-traded tickers and recent trades) use GET /v1/congress/politicians/{idOrSlug}. Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). `limit` is accepted as an alias for `per_page`. Query runs live — no caching.",
     schema: {
   page: z.number().int().optional().describe(`1-based page number. Defaults to 1.`),
-  per_page: z.number().int().optional().describe(`Politicians per page. Defaults to 100, maximum 500.`),
+  per_page: z.number().int().optional().describe(`Politicians per page. Defaults to 100, maximum 500. \`limit\` is accepted as an alias; if both are given, per_page wins.`),
+  limit: z.number().int().optional().describe(`Alias for per_page.`),
     },
     handler: async (client, input) => client.get<unknown>('/v1/congress/politicians', {
         page: input.page as never,
         per_page: input.per_page as never,
+        limit: input.limit as never,
       }),
   },
   {
@@ -255,7 +261,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'ListCongressTrades',
     method: 'GET',
     path: '/v1/congress/trades',
-    description: "Query congressional STOCK Act trades (Free+, plan-clamped disclosure window). Returns a paginated JSON list of congressional periodic-transaction-report trades, most recently DISCLOSED first, with non-superseded rows only (amended-away rows never appear). COVERAGE — HOUSE ONLY TODAY: every trade in this dataset comes from the U.S. House Clerk's PTR index. Senate eFD (efdsearch.senate.gov) returns 403 to datacenter traffic, so no Senate filings are ingested yet. chamber=Senate remains a valid filter but matches nothing and returns the response header X-Coverage-Note: chamber-not-covered, so an empty result is never ambiguous. Scanning by chamber should treat that header as \"not covered\", not as \"no trades\". PLAN-CLAMPED WINDOW: this endpoint is open to every plan, but how far back you can see is clamped on disclosureDate — Free sees only trades disclosed in the last 30 days, Starter the last 366 days, Pro/Business/Enterprise unlimited history. Passing an older disclosure_date_from than your plan allows does not extend the window — the floor always wins. Filters: ticker, politician (bioguideId, exact), party (free-text, case-insensitive exact match — not a fixed enum), chamber (House|Senate — see the coverage note above), state (2-letter code), transaction_type (purchase|sale|partial_sale|exchange), min_amount (range-aware — matches AmountLow >= value, never a fabricated midpoint), transaction_date_from/to, disclosure_date_from/to. Every row always carries BOTH amountLow and amountHigh (STOCK Act discloses ranges, never exact figures) and disclosureLagDays = (disclosureDate - transactionDate) — the STOCK Act allows up to 45 days of lag, so \"real-time\" here means minutes-after-disclosure, not minutes-after-trade. For per-politician or per-ticker rollups use GET /v1/congress/politicians, /v1/congress/politicians/{idOrSlug}, or /v1/congress/tickers/{ticker} (all Pro+). Query runs live against the database — no caching.",
+    description: "Query congressional STOCK Act trades (Free+, plan-clamped disclosure window). Returns a paginated JSON list of congressional periodic-transaction-report trades, most recently DISCLOSED first, with non-superseded rows only (amended-away rows never appear). COVERAGE — HOUSE ONLY TODAY: every trade in this dataset comes from the U.S. House Clerk's PTR index. Senate eFD (efdsearch.senate.gov) returns 403 to datacenter traffic, so no Senate filings are ingested yet. chamber=Senate remains a valid filter but matches nothing and returns the response header X-Coverage-Note: chamber-not-covered, so an empty result is never ambiguous. Scanning by chamber should treat that header as \"not covered\", not as \"no trades\". PLAN-CLAMPED WINDOW: this endpoint is open to every plan, but how far back you can see is clamped on disclosureDate — Free sees only trades disclosed in the last 30 days, Starter the last 366 days, Pro/Business/Enterprise unlimited history. Passing an older disclosure_date_from than your plan allows does not extend the window — the floor always wins. Filters: ticker, politician (bioguideId, exact), party (free-text, case-insensitive exact match — not a fixed enum), chamber (House|Senate — see the coverage note above), state (2-letter code), transaction_type (purchase|sale|partial_sale|exchange), min_amount (range-aware — matches AmountLow >= value, never a fabricated midpoint), transaction_date_from/to, disclosure_date_from/to. Every row always carries BOTH amountLow and amountHigh (STOCK Act discloses ranges, never exact figures) and disclosureLagDays = (disclosureDate - transactionDate) — the STOCK Act allows up to 45 days of lag, so \"real-time\" here means minutes-after-disclosure, not minutes-after-trade. For per-politician or per-ticker rollups use GET /v1/congress/politicians, /v1/congress/politicians/{idOrSlug}, or /v1/congress/tickers/{ticker} (all Pro+). To check whether an insider cluster-buy lines up with a congressional purchase in the same ticker, use GET /v1/signals/convergence (Pro+); for the company's own profile use GET /v1/companies/{ticker} (Free). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.",
     schema: {
   ticker: z.string().optional().describe(`Ticker symbol, case-insensitive exact match (e.g. "AAPL").`),
   politician: z.string().optional().describe(`Politician's bioguide ID, exact match (e.g. "P000197").`),
@@ -269,7 +275,8 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   disclosure_date_from: z.string().optional().describe(`Inclusive start of the disclosure-date window, format YYYY-MM-DD. Subject to the plan-clamped floor below — a Free/Starter caller cannot page back further than their plan allows even by passing an older date here.`),
   disclosure_date_to: z.string().optional().describe(`Inclusive end of the disclosure-date window, format YYYY-MM-DD.`),
   page: z.number().int().optional().describe(`1-based page number. Defaults to 1.`),
-  per_page: z.number().int().optional().describe(`Trades per page. Defaults to 100, maximum 500.`),
+  per_page: z.number().int().optional().describe(`Trades per page. Defaults to 100, maximum 500. \`limit\` is accepted as an alias; if both are given, per_page wins.`),
+  limit: z.number().int().optional().describe(`Alias for per_page.`),
     },
     handler: async (client, input) => client.get<unknown>('/v1/congress/trades', {
         ticker: input.ticker as never,
@@ -285,6 +292,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
         disclosure_date_to: input.disclosure_date_to as never,
         page: input.page as never,
         per_page: input.per_page as never,
+        limit: input.limit as never,
       }),
   },
   {
@@ -292,7 +300,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'ListFilings',
     method: 'GET',
     path: '/v1/filings',
-    description: "List Form 4 filings with optional ticker, CIK and date filters. Returns a paginated list of Form 4 filings, newest filed first. Filter by ticker, cik, and a from/to filed-date window. Each entry carries the accession number, company ticker/name, period of report, filed date, amendment type (Original/Amendment), and the count of non-superseded transactions in that filing. Use this for a company's filing HISTORY; use GET /v1/filings/recent for a live newest-first feed (it has no page parameter), and GET /v1/transactions when you want the individual trades rather than the filings that contain them. `limit` is accepted as an alias for `per_page`. Not plan-gated.",
+    description: "List Form 4 filings with optional ticker, CIK and date filters. Returns a paginated list of Form 4 filings, newest filed first. Filter by ticker, cik, and a from/to filed-date window. Each entry carries the accession number, company ticker/name, period of report, filed date, acceptedAt (the precise UTC SEC-acceptance instant, null if not captured), documentUrl (the public SEC document URL), amendment type (Original/Amendment), and the count of non-superseded transactions in that filing. Use this for a company's filing HISTORY; use GET /v1/filings/recent for a live newest-first feed (it has no page parameter), and GET /v1/transactions when you want the individual trades rather than the filings that contain them. `limit` is accepted as an alias for `per_page`. Not plan-gated.",
     schema: {
   ticker: z.string().optional().describe(`Company ticker symbol, case-insensitive (e.g. "AAPL").`),
   cik: z.string().optional().describe(`Company CIK (SEC identifier), e.g. "0000320193". Leading zeros optional.`),
@@ -313,11 +321,34 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
       }),
   },
   {
+    name: 'list_schedule13_dg',
+    operationId: 'ListSchedule13DG',
+    method: 'GET',
+    path: '/v1/ownership/13d-13g',
+    description: "List Schedule 13D/13G >5% beneficial-ownership crossings (Business plan+). Returns every parsed >5% beneficial-ownership crossing event for a company — filer/reporting person, ownership percent, event date, form type (13D or 13G), and amendment status — parsed from EDGAR's structured Schedule 13D/13G cover-page XML (mandatory since the SEC's 2023 rule, compliance date 2024-12-18). SC 13D indicates an \"active\" investor who may seek control or influence over the issuer and must file within five business days of crossing the threshold (shortened from 10 days by the SEC's 2023 rule amendments, effective 2024-02-05); SC 13G is a lighter, less frequent filing for \"passive\"/qualified investors (e.g. index funds), with its own accelerated deadlines effective 2024-09-30. A single accession can carry several rows when the filing is a joint filing (e.g. a fund, its general partner, and the individual who controls both) — each reporting person has its own ownership percent. Results exclude rows superseded by a later SC 13D/A or SC 13G/A amendment; the isAmendment field on a returned row indicates whether that row is itself an amendment, not whether it has since been superseded. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.",
+    schema: {
+  ticker: z.string().optional().describe(`Company ticker symbol, case-insensitive (e.g. "AAPL"). Omit to search across all companies.`),
+  form_type: z.string().optional().describe(`Filter to one form type: "13D" (active investor, may seek control/influence) or "13G" (passive/qualified investor). Case-insensitive. Omit for both.`),
+  is_amendment: z.boolean().optional().describe(`When true, only returns amendments (SC 13D/A or SC 13G/A rows). When false, only returns original filings. Omit for both.`),
+  page: z.number().int().optional().describe(`1-based page number. Defaults to 1.`),
+  per_page: z.number().int().optional().describe(`Rows per page. Defaults to 50, maximum 200. \`limit\` is accepted as an alias; if both are given, per_page wins.`),
+  limit: z.number().int().optional().describe(`Alias for per_page.`),
+    },
+    handler: async (client, input) => client.get<unknown>('/v1/ownership/13d-13g', {
+        ticker: input.ticker as never,
+        form_type: input.form_type as never,
+        is_amendment: input.is_amendment as never,
+        page: input.page as never,
+        per_page: input.per_page as never,
+        limit: input.limit as never,
+      }),
+  },
+  {
     name: 'list_webhooks',
     operationId: 'ListWebhooks',
     method: 'GET',
     path: '/v1/webhooks',
-    description: "List webhook subscriptions owned by the authenticated API key. Returns every webhook subscription (active and deactivated) created under the authenticated API key: subscription id, target URL, subscribed event types, creation date, active flag, and the isReadOnly flag. Does NOT return the signing secret again (it's shown once, at creation, by POST /v1/webhooks) — regenerate by deleting and recreating the subscription if it's lost. Requires a valid X-Api-Key (401 without one).",
+    description: "List webhook subscriptions owned by the authenticated API key. Returns active webhook subscriptions under the authenticated API key, plus any the system auto-disabled after sustained delivery failures (disabledReason \"delivery_failures\") — those stay visible with disabledAt/disabledReason set so you can see why delivery stopped and reverse it with POST /v1/webhooks/{id}/enable. Subscriptions you deleted yourself (disabledReason \"user_deleted\") are never returned here again, and neither are legacy rows disabled before this field existed (disabledReason null) — both are permanently gone from this list. Each entry: subscription id, target URL, subscribed event types, creation date, active flag, disabledAt/disabledReason (both null while active), and the isReadOnly flag. Does NOT return the signing secret again (it's shown once, at creation, by POST /v1/webhooks) — regenerate by deleting and recreating the subscription if it's lost. Requires a valid X-Api-Key (401 without one).",
     schema: {
 
     },
@@ -328,16 +359,18 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'ListInsiders',
     method: 'GET',
     path: '/v1/insiders',
-    description: "Search insiders (officers, directors, 10% owners) by name. Searches insiders by name and returns a paginated list of matches with each insider's CIK, title, director/officer/10%-owner flags, and total filing count. Use this to resolve a person's name to their CIK before fetching their transaction history, career summary, or scorecard — the CIK returned here feeds directly into GET /v1/insiders/{cik}/transactions, /summary, and /scorecard. Omitting the name filter returns insiders in alphabetical order rather than performing a search. Not plan-gated — available on the Free tier.",
+    description: "Search insiders (officers, directors, 10% owners) by name. Searches insiders by name and returns a paginated list of matches with each insider's CIK, title, director/officer/10%-owner flags, and total filing count. Use this to resolve a person's name to their CIK before fetching their transaction history, career summary, or scorecard — the CIK returned here feeds directly into GET /v1/insiders/{cik}/transactions, /summary, and /scorecard. Omitting the name filter returns insiders in alphabetical order rather than performing a search. `limit` is accepted as an alias for `per_page`. Not plan-gated — available on the Free tier.",
     schema: {
   name: z.string().optional().describe(`Case-insensitive substring match against the insider's full name (e.g. "Musk", "cook"). Must be at least 2 characters — shorter values return a 400 QUERY_TOO_SHORT error. Omit to list all insiders alphabetically.`),
   page: z.number().int().optional().describe(`1-based page number. Defaults to 1.`),
-  per_page: z.number().int().optional().describe(`Number of insiders per page. Defaults to 20, maximum 500.`),
+  per_page: z.number().int().optional().describe(`Number of insiders per page. Defaults to 20, maximum 500. \`limit\` is accepted as an alias; if both are given, per_page wins.`),
+  limit: z.number().int().optional().describe(`Alias for per_page.`),
     },
     handler: async (client, input) => client.get<unknown>('/v1/insiders', {
         name: input.name as never,
         page: input.page as never,
         per_page: input.per_page as never,
+        limit: input.limit as never,
       }),
   },
 ]

@@ -2,6 +2,8 @@ export interface Transaction {
   transactionId: number
   accessionNumber: string
   filedAt: string
+  acceptedAt: string | null
+  documentUrl: string | null
   transactionDate: string
   transactionCode: string
   sharesAmount: number
@@ -23,6 +25,8 @@ export interface Transaction {
 export interface Filing {
   accessionNumber: string
   filedAt: string
+  acceptedAt: string | null
+  documentUrl: string | null
   periodOfReport: string
   companyCik: string
   companyName: string
