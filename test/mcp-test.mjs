@@ -1,7 +1,7 @@
 /**
  * MCP protocol test — spawns the server and verifies:
  *  1. initialize handshake
- *  2. tools/list returns all 37 tools with correct names
+ *  2. tools/list returns all 38 tools with correct names
  *  3. prompts/list returns all 6 recipe prompts
  *  4. prompts/get returns rendered messages for a sample of prompts
  *  5. (optional) live tool call if FORM4API_KEY is set
@@ -69,6 +69,10 @@ const EXPECTED_TOOLS = [
   // Auto-generated after the Schedule 13D/13G ownership-crossings endpoint
   // shipped; picked up by the 2026-09-24 OpenAPI sync (v1.15.0).
   'list_schedule13_dg',
+  // Hand-written combined company/insider name resolver (insiderapi #314,
+  // 2026-09-25) — framed as the obvious first call to resolve a name to a
+  // ticker/CIK before calling other tools.
+  'search',
 ]
 
 // Recipe prompts (v1.9.0, 2026-07-11) — the MCP "prompts" capability.
@@ -153,11 +157,11 @@ async function runTest() {
     server.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n')
 
     // ── Test 2: tools/list ────────────────────────────────────────────────
-    console.log('\n[2] tools/list — 37 tools registered')
+    console.log('\n[2] tools/list — 38 tools registered')
     const listRes = await send('tools/list', {})
     const toolNames = (listRes.result?.tools ?? []).map(t => t.name)
     assert(!listRes.error, 'no error in tools/list response')
-    assert(toolNames.length === 37, `37 tools returned (got ${toolNames.length})`)
+    assert(toolNames.length === 38, `38 tools returned (got ${toolNames.length})`)
     for (const name of EXPECTED_TOOLS) {
       assert(toolNames.includes(name), `tool "${name}" present`)
     }

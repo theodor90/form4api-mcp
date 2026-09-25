@@ -24,6 +24,13 @@ This ensures clients can always see what tools are available in a given version 
 
 ---
 
+## [Unreleased]
+
+**Tool count: 38** (+1: `search`). Free tools 23 → 24; gated unchanged.
+
+### Added
+- `search` (hand-written) — resolve a company name, ticker fragment, or a person's name to a ticker or CIK in one call, returning separately-ranked `companies` and `insiders` lists. Free plan. Wraps `GET /v1/search` (backend insiderapi #314, live since 2026-09-25). Framed in `SERVER_INSTRUCTIONS` and its own description as the obvious first call when an agent has a name/fragment but no identifier yet. Kept hand-written (added to `HANDLED_BY_HANDWRITTEN` in `codegen/generate.mjs`) rather than left to codegen so the description could explicitly steer agents to call it before `get_company_overview`/`get_insider_profile`/etc., matching the pattern used for `research_company`.
+
 ## [1.15.0] — 2026-09-24
 
 **Tool count: 37** (+1: `list_schedule13_dg`). Free tools unchanged at 23; gated 13 → 14.

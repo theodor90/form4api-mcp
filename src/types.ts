@@ -69,6 +69,24 @@ export interface CompanyInsider {
   totalTransactions: number
 }
 
+export interface SearchCompanyResult {
+  ticker: string
+  name: string
+  cik: string
+}
+
+export interface SearchInsiderResult {
+  cik: string
+  name: string
+  title: string | null
+  ticker: string | null
+}
+
+export interface SearchResponse {
+  companies: SearchCompanyResult[]
+  insiders: SearchInsiderResult[]
+}
+
 export interface Signal {
   signalId: number
   ticker: string

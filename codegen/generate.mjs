@@ -69,6 +69,7 @@ const HANDLED_BY_HANDWRITTEN = new Set([
   'ListHoldings',             // → get_holdings (src/tools/holdings.ts)
   'ListManagers',             // → get_managers (src/tools/managers.ts)
   'GetKeyUsage',              // → check_usage (src/tools/usage.ts)
+  'Search',                   // → search (src/tools/search.ts)
 ])
 
 // Override the default snake_case mapping for a clearer LLM tool name on a

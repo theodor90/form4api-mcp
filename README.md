@@ -1,6 +1,6 @@
 # form4api-mcp
 
-> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay, plus congressional STOCK Act trades and insider/Congress convergence** — 35 tools + 6 ready-made research prompts
+> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay, plus congressional STOCK Act trades and insider/Congress convergence** — 36 tools + 6 ready-made research prompts
 
 [![npm version](https://badge.fury.io/js/form4api-mcp.svg)](https://www.npmjs.com/package/form4api-mcp)
 [![Available on mcp.so](https://img.shields.io/badge/mcp.so-form4api-blue)](https://mcp.so)
@@ -136,7 +136,13 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 
 ---
 
-## Available tools (35)
+## Available tools (36)
+
+### Search
+
+| Tool | Description | Plan |
+|---|---|---|
+| `search` | Resolve a company name, ticker fragment, or a person's name to a ticker or CIK — the usual first call when you don't already have an identifier. Returns separately-ranked `companies` and `insiders` lists | Free |
 
 ### Form 4 insider trading
 
@@ -273,12 +279,13 @@ The MCP wraps the same backend as all of the above — every fact your LLM cites
 
 ## Plans
 
-**22 of the 35 tools work on the free plan, and every tool that is free today stays free.**
+**23 of the 36 tools work on the free plan, and every tool that is free today stays free.**
 New premium capability gets tiered as it ships; nothing that already works on your key is
 taken away later.
 
 | Tool | Free | Pro | Business |
 |---|---|---|---|
+| `search` | ✓ | ✓ | ✓ |
 | `get_transactions`, `get_recent_filings`, `get_filing` | ✓ | ✓ | ✓ |
 | `get_insider_profile`, `get_insider_transactions` | ✓ | ✓ | ✓ |
 | `get_company_overview`, `get_company_insiders` | ✓ | ✓ | ✓ |
