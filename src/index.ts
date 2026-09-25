@@ -18,6 +18,7 @@ import { getInsiderCareerSummarySchema, getInsiderCareerSummary } from './tools/
 import { checkUsageSchema, checkUsage } from './tools/usage.js'
 import { verifySetupSchema, verifySetup } from './tools/verify-setup.js'
 import { researchCompanySchema, researchCompany } from './tools/research.js'
+import { searchSchema, search } from './tools/search.js'
 import { GENERATED_TOOLS } from './tools/_generated.js'
 import { RECIPE_PROMPTS } from './prompts/recipes.js'
 
@@ -32,7 +33,7 @@ const { version } = JSON.parse(
 
 const SERVER_INSTRUCTIONS = `Form4API insider trading data: amendment-aware Form 4 transactions, 10b5-1 plan flags, Form 144 intent-to-sell, institutional 13F-HR overlay, and congressional STOCK Act trades — including the insider-cluster-buy x congressional-purchase convergence signal.
 
-Start with \`research_company\` to get bundled insider context for any ticker. If something fails, run \`verify_setup\` first. Try \`get_public_stats\` without a key to preview the data.
+Only have a company name, ticker fragment, or a person's name? Call \`search\` first to resolve it to a ticker or CIK. Start with \`research_company\` to get bundled insider context for any ticker. If something fails, run \`verify_setup\` first. Try \`get_public_stats\` without a key to preview the data.
 
 Try these prompts:
 • "What insider trades happened at NVDA in the last 30 days, excluding 10b5-1 plans?"
@@ -273,6 +274,20 @@ server.tool(
   async () => {
     try {
       return wrapResult(await verifySetup({}))
+    } catch (err) {
+      return wrapError(err)
+    }
+  },
+)
+
+server.tool(
+  'search',
+  'Resolve free-text input — a company name, ticker fragment, or a person\'s name — to a ticker or CIK. This is usually the right FIRST call when a user names a company or insider you don\'t already have an identifier for; feed the resulting ticker into get_company_overview/get_transactions or the CIK into get_insider_profile/get_insider_transactions. Returns two independently-ranked lists: `companies` (only ones with a resolved public ticker, ranked exact ticker match, then ticker-prefix, then name-prefix, then name-contains) and `insiders` (matched by splitting the query on whitespace so every token must match the name, e.g. "tim cook" matches SEC-style "Cook Timothy D"; ranked by total filing count, most active first). Each insider\'s `ticker` is a ticker associated with that insider (may be null). `q` must be 2-64 characters after trimming (400 QUERY_TOO_SHORT/QUERY_TOO_LONG). `limit` applies independently to each list, default 8, max 20. Free plan, no caching.',
+  searchSchema.shape,
+  READ_ONLY,
+  async (input) => {
+    try {
+      return wrapResult(await search(client, input as Parameters<typeof search>[1]))
     } catch (err) {
       return wrapError(err)
     }
