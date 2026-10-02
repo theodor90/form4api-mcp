@@ -104,7 +104,7 @@ export async function verifySetup(_input: VerifySetupInput): Promise<VerifySetup
             status: 'fail',
             detail: `Requires ${body.required_plan ?? 'higher'} plan; current plan is ${body.currentPlan ?? 'unknown'}`,
           })
-          nextSteps.push('Upgrade your plan at https://www.form4api.com/dashboard/billing to access this tool')
+          nextSteps.push('This tool requires a higher plan than your current one; see your account dashboard at https://www.form4api.com/dashboard')
         } else {
           let errorText = res.statusText
           try {

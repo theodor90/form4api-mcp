@@ -77,7 +77,9 @@ async function run() {
       p?.message === 'This endpoint requires the Business plan or higher. Your current plan is Free.',
       'preserves the backend message verbatim',
     )
-    assert(p?.pricing_url === 'https://www.form4api.com/pricing', 'includes the pricing URL')
+    assert(p?.pricing_url === undefined, 'has no pricing_url')
+    assert(p?.upgrade_url === undefined, 'omits upgrade_url when the backend sends none')
+    assert(!/\$|\/mo\b/.test(p?.unlocks ?? ''), 'unlocks carries no prices')
     assert(JSON.parse(err.message).required_plan === 'business', 'message is the JSON payload for the LLM router')
   }
 

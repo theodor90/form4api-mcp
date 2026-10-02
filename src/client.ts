@@ -15,46 +15,39 @@ const { version: PKG_VERSION } = JSON.parse(
 export type RequiredPlan = 'starter' | 'pro' | 'business' | 'enterprise' | 'higher'
 
 // Structured payload the MCP returns when an upstream call needs a plan
-// upgrade. The LLM router can read the JSON shape and surface the upgrade
-// path to the user cleanly (e.g. "you need Business for sentiment scores,
-// upgrade at form4api.com/dashboard/billing") instead of swallowing an
-// opaque 402 text. PLAN_MCP_DEFENSE Decision 1 (2026-06-01).
+// upgrade. The LLM router can read the JSON shape and explain to the user
+// cleanly which plan a call needs, instead of swallowing an opaque 402 text. PLAN_MCP_DEFENSE Decision 1 (2026-06-01).
 //
 // `message` is the backend's own text, verbatim. That matters: the API
 // explains each gate specifically (which page depth was exceeded, which
 // filter param is Pro-only, that /v1/transactions/export exists for bulk
 // pulls), and that detail is far more useful to a calling agent than any
-// sentence this client could synthesise. `unlocks` adds what the target plan
-// buys, so the agent can relay a complete upgrade pitch in one turn instead
-// of making the user go read the pricing page to find out.
+// sentence this client could synthesise. `unlocks` states what the target plan
+// includes. `upgrade_url` is present only when the backend supplies one.
 export interface UpgradeRequiredPayload {
   error: 'upgrade_required'
   required_plan: RequiredPlan
   current_plan?: string
   message: string
   unlocks?: string
-  upgrade_url: string
-  pricing_url: string
+  upgrade_url?: string
 }
 
-// What each paid tier adds, phrased as the answer to "why would I pay for
-// this". Kept in sync with form4api-web/app/lib/plans.ts, which is the
-// single source of truth for plan contents.
+// A neutral, factual description of what each plan includes. No prices: the
+// site does not publish them. Kept in sync with form4api-web/app/lib/plans.ts,
+// which is the single source of truth for plan contents.
 const PLAN_UNLOCKS: Record<Exclude<RequiredPlan, 'higher'>, string> = {
   starter:
-    'Starter ($19/mo) adds a commercial-use license, 7,500 requests/day, and 100 pages of query depth.',
+    'The Starter plan includes a commercial-use license, 7,500 requests/day, and 100 pages of query depth.',
   pro:
-    'Pro ($49/mo) adds insider scorecards and career summaries, congressional trading data and convergence signals, ' +
+    'The Pro plan includes insider scorecards and career summaries, congressional trading data and convergence signals, ' +
     'return and trade-size filters, unlimited query depth, and 50,000 requests/day.',
   business:
-    'Business ($149/mo) adds cluster-buy signals and sentiment scores, 13F institutional holdings and managers, ' +
+    'The Business plan includes cluster-buy signals and sentiment scores, 13F institutional holdings and managers, ' +
     'Form 144 notices, bulk CSV export, and 250,000 requests/day.',
   enterprise:
-    'Enterprise ($499/mo) adds unlimited requests, unlimited webhooks, and Slack support with an SLA.',
+    'The Enterprise plan includes unlimited requests, unlimited webhooks, and Slack support with an SLA.',
 }
-
-const PRICING_URL = 'https://www.form4api.com/pricing'
-const BILLING_URL = 'https://www.form4api.com/dashboard/billing'
 
 export class Form4ApiError extends Error {
   constructor(
@@ -148,8 +141,8 @@ export class Form4ApiClient {
           ...(currentPlan ? { current_plan: currentPlan } : {}),
           message,
           ...(requiredPlan !== 'higher' ? { unlocks: PLAN_UNLOCKS[requiredPlan] } : {}),
-          upgrade_url: upgradeUrl ?? BILLING_URL,
-          pricing_url: PRICING_URL,
+          // Only the backend's own link; omitted when it sends none/null.
+          ...(upgradeUrl ? { upgrade_url: upgradeUrl } : {}),
         }
         // The structured payload is JSON-encoded into the error message so
         // the MCP server's text-channel response carries the full shape.

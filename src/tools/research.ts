@@ -79,13 +79,13 @@ export async function researchCompany(
   const signals = signalsResult.status === 'fulfilled' ? signalsResult.value : null
   const signalsUnavailable =
     signalsResult.status === 'rejected'
-      ? 'Cluster signals require Business plan. Upgrade at https://www.form4api.com/dashboard/billing'
+      ? 'Cluster signals require the Business plan.'
       : null
 
   const sentiment = sentimentResult.status === 'fulfilled' ? sentimentResult.value : null
   const sentimentUnavailable =
     sentimentResult.status === 'rejected'
-      ? 'Sentiment scores require Business plan. Upgrade at https://www.form4api.com/dashboard/billing'
+      ? 'Sentiment scores require the Business plan.'
       : null
 
   // Compute summary from real fetched data only
