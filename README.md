@@ -311,9 +311,7 @@ A gated call never surfaces a bare HTTP error. The MCP returns a structured
   "required_plan": "business",
   "current_plan": "Free",
   "message": "This endpoint requires the Business plan or higher. Your current plan is Free.",
-  "unlocks": "Business ($149/mo) adds cluster-buy signals and sentiment scores, 13F institutional holdings and managers, Form 144 notices, bulk CSV export, and 250,000 requests/day.",
-  "upgrade_url": "https://www.form4api.com/dashboard/billing",
-  "pricing_url": "https://www.form4api.com/pricing"
+  "unlocks": "The Business plan includes cluster-buy signals and sentiment scores, 13F institutional holdings and managers, Form 144 notices, bulk CSV export, and 250,000 requests/day."
 }
 ```
 
@@ -322,8 +320,7 @@ parameter that stopped the call, which is usually what the model needs to sugges
 alternative. The same shape is returned when a Pro-only *parameter* is used on an otherwise
 free tool, so the model can simply retry without that filter.
 
-Upgrade at [form4api.com/dashboard/billing](https://www.form4api.com/dashboard/billing), or
-compare tiers at [form4api.com/pricing](https://www.form4api.com/pricing).
+`upgrade_url` is included only when the API supplies one; it is omitted otherwise.
 
 ---
 
