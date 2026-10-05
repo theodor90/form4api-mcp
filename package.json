@@ -42,6 +42,7 @@
   "bin": {
     "form4api-mcp": "dist/index.js"
   },
+  "type": "commonjs",
   "main": "./dist/index.js",
   "files": [
     "dist",
