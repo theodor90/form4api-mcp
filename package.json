@@ -40,7 +40,7 @@
     "url": "https://github.com/theodor90/form4api-mcp/issues"
   },
   "bin": {
-    "form4api-mcp": "./dist/index.js"
+    "form4api-mcp": "dist/index.js"
   },
   "main": "./dist/index.js",
   "files": [
