@@ -337,7 +337,11 @@ async function stageDryRun() {
   const res = run('npm', ['publish', '--dry-run'])
   const out = res.stdout + res.stderr
   // Warnings are the point of this stage (the bin rewrite showed up as one), so scan first.
-  const warns = out.split(/\r?\n/).filter((l) => /npm warn/i.test(l))
+  // The one environmental warning: CI runners are not logged in to npm. It says nothing
+  // about the package, so it is the only line ignored.
+  const warns = out
+    .split(/\r?\n/)
+    .filter((l) => /npm warn/i.test(l) && !/requires you to be logged in/i.test(l))
   if (warns.length) fail(`npm publish --dry-run printed ${warns.length} warning line(s):\n     ${redact(warns.join('\n     '))}`)
   if (res.status !== 0) {
     // The only tolerated error: this exact version is already on the registry. The dry-run
