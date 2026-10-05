@@ -26,6 +26,14 @@ This ensures clients can always see what tools are available in a given version 
 
 ## [Unreleased]
 
+## [1.15.2] — 2026-10-05
+
+**Tool count: 38** (unchanged). No tools added, renamed, or removed. Description-only change from regenerating against the live spec.
+
+### Changed
+- `list_congress_trades` and `get_convergence_signals` generated descriptions now document congressional date quality (backend insiderapi #330/#331, live 2026-10-05). On congress trades, `disclosureLagDays` is now nullable and a new nullable `dateQuality` names why the filing's dates are impossible or implausible: `transaction_after_disclosure`, `future_transaction_date`, or `implausible_lag`. A null lag with a `dateQuality` code means the filing's own dates are impossible; the raw `transactionDate` and `disclosureDate` are still returned and flagged rows are never dropped. Flagged trades are excluded from convergence detection, so `dateQuality` is always null on convergence legs. A lag over 45 days is not a legal finding.
+- No response types in this package model these fields (tool results pass the API JSON through), so no type changes.
+
 ## [1.15.1] — 2026-10-02
 
 **Tool count: 38** (+1: `search`). Free tools 23 → 24; gated unchanged.
