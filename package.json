@@ -42,6 +42,7 @@
   "bin": {
     "form4api-mcp": "dist/index.js"
   },
+  "type": "commonjs",
   "main": "./dist/index.js",
   "files": [
     "dist",
@@ -56,6 +57,7 @@
     "test": "node test/mcp-test.mjs && node test/client-errors.mjs && node test/generated-paths.mjs && node test/format.mjs",
     "codegen": "node codegen/generate.mjs",
     "codegen:check": "node codegen/check.mjs",
+    "release:check": "node scripts/release-check.mjs",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
@@ -64,6 +66,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "publint": "^0.3.25",
     "typescript": "^5.5.0"
   },
   "engines": {

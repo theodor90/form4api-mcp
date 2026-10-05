@@ -23,6 +23,25 @@ jobs:
       - name: MCP protocol test
         run: npm test
 
+  release-check:
+    runs-on: ubuntu-latest
+    # Tests the packed tarball, not the source tree: install in a clean project,
+    # smoke-test the installed bin, publish --dry-run. --offline skips the live
+    # API stage (no key in CI). mcp-publisher is absent here, so that part SKIPs;
+    # the ajv check of server.json against its $schema still runs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Pre-publish gate (offline)
+        run: npm run release:check -- --offline
+
   codegen-check:
     runs-on: ubuntu-latest
     # Runs in parallel with build-and-test. Fails fast if a backend

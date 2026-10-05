@@ -20,6 +20,16 @@ When shipping a release:
 4. Commit CHANGELOG + package.json + server.json together
 5. Tag: `git tag vX.Y.Z && git push origin vX.Y.Z`
 
+### Before publishing
+
+Run `npm run release:check` with `FORM4API_TEST_KEY` set (a real Form4API key, read from the environment only and never printed). It must pass before `npm publish`. It builds and packs the package, lints the tarball, installs it into a clean temp project, smoke-tests the *installed* server, makes live API calls, and runs `npm publish --dry-run`, failing on any `npm warn` line. `--offline` skips the live stage (CI uses it); `--keep` keeps the temp directories.
+
+Registry gotcha: the `mcp-publisher` login JWT expires within minutes, so never log in and publish as two separate steps. Chain them (PowerShell):
+
+```powershell
+.\mcp-publisher.exe login github; if ($LASTEXITCODE -eq 0) { .\mcp-publisher.exe publish }
+```
+
 This ensures clients can always see what tools are available in a given version and upgrade decisively.
 
 ---
