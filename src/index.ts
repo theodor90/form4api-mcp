@@ -114,7 +114,7 @@ server.tool(
 
 server.tool(
   'get_insider_profile',
-  "Look up one insider's identity by CIK (SEC's numeric filer identifier, e.g. 0001214128) — returns name, all known titles, and director/officer/10%-owner role flags. If you only have a name, resolve it to a CIK first with the generated search_insiders tool. For trading history use get_insider_transactions or get_insider_career_summary instead. Free plan.",
+  "Identity card for one insider by CIK (SEC's numeric filer identifier): name, all known titles, and director/officer/10%-owner role flags. Returns NO transactions — when the user asks what an insider bought, sold or filed, use get_insider_transactions (raw rows) or get_insider_career_summary (aggregated rollup) instead. If you only have a name, resolve it to a CIK first with search. Free plan.",
   getInsiderProfileSchema.shape,
   READ_ONLY,
   async (input) => {
@@ -170,7 +170,7 @@ server.tool(
 
 server.tool(
   'get_signals',
-  'Cluster buy/sell signals — multiple insiders at the same company trading in the same direction within a short window, a stronger conviction signal than any single trade. Excludes 10b5-1 plan trades automatically by construction. Returns signal type, detection date, buyer/seller counts, total $ value, and the underlying transactions; pair with the generated explain_signal tool to see exactly why a given signal fired. Use get_transactions instead for raw, unaggregated trade search. Requires Business plan (a 402 upgrade_required response is returned otherwise). Paginated, max 50/page.',
+  'Cluster buy/sell signals — multiple insiders at the same company trading in the same direction within a short window, a stronger conviction signal than any single trade. Excludes 10b5-1 plan trades automatically by construction. Returns signal type, detection date, buyer/seller counts, total $ value, and the underlying transactions. Use this to FIND which companies have signals; when the user already names a company and asks WHY its signal fired or which insiders were in the cluster, call explain_signal with that ticker directly instead. Use get_transactions instead for raw, unaggregated trade search. Requires Business plan (a 402 upgrade_required response is returned otherwise). Paginated, max 50/page.',
   getSignalsSchema.shape,
   READ_ONLY,
   async (input) => {
