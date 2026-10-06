@@ -332,7 +332,7 @@ for (const tool of GENERATED_TOOLS) {
 }
 
 // Recipe prompts — MCP "prompts" capability. Each one is a canned
-// tool-orchestration template (which of the 27 tools to call, in what order,
+// tool-orchestration template (which of the 38 tools to call, in what order,
 // how to read plan-gated failures) that a client can discover via
 // prompts/list and fetch via prompts/get. Defined in src/prompts/recipes.ts,
 // NOT generated from the OpenAPI spec — safe to hand-edit.

@@ -2,7 +2,7 @@
 //
 // NOT touched by codegen. Unlike src/tools/*, these are pure client-side
 // convenience templates: each one returns a canned user-message that tells
-// the calling LLM which of the 25 tools to call, in what order, and how to
+// the calling LLM which of the 38 tools to call, in what order, and how to
 // read the result. They add zero new backend surface area — they're a
 // script for tool orchestration that the MCP protocol lets a client discover
 // via prompts/list and fetch via prompts/get.

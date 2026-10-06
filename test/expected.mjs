@@ -1,6 +1,6 @@
 /**
- * Expected tool and prompt names. Shared by test/mcp-test.mjs and
- * scripts/release-check.mjs so the list lives in exactly one place.
+ * Expected tool and prompt names. Shared by test/mcp-test.mjs and the
+ * release checks so the list lives in exactly one place.
  */
 
 export const EXPECTED_TOOLS = [
