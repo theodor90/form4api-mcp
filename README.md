@@ -1,6 +1,6 @@
 # form4api-mcp
 
-> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay, plus congressional STOCK Act trades and insider/Congress convergence** — 36 tools + 6 ready-made research prompts
+> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay, plus congressional STOCK Act trades and insider/Congress convergence** — 38 tools + 6 ready-made research prompts
 
 [![npm version](https://badge.fury.io/js/form4api-mcp.svg)](https://www.npmjs.com/package/form4api-mcp)
 [![Available on mcp.so](https://img.shields.io/badge/mcp.so-form4api-blue)](https://mcp.so)
@@ -136,7 +136,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 
 ---
 
-## Available tools (36)
+## Available tools (38)
 
 ### Search
 
@@ -158,6 +158,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | `get_company_overview` | Company profile — name, CIK, SIC sector, state, website, filing counts | Free |
 | `get_company_insiders` | All insiders who have filed Form 4s for a company | Free |
 | `list_companies` | List companies, sorted by name or filing count | Free |
+| `get_insider_directory` | Browse insiders alphabetically by surname — an A-Z rail with a count per letter, plus one page of insiders under the requested letter | Free |
 | `get_insider_career_summary` | Aggregate career rollup: total bought/sold, top companies, 10b5-1 split, return averages | Pro |
 | `get_insider_scorecard` | Buy track-record scorecard for an insider (CIK) — hit rate and avg/median return on discretionary open-market buys; null when fewer than 5 matured samples | Pro |
 | `get_insider_leaderboard` | Top insiders ranked by `hit_rate` or `avg_return`; filter by `horizon` (3m/6m), `min_trades`, and `limit` | Business |
@@ -178,6 +179,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | `get_managers` | Institutional manager index with latest AUM | Business |
 | `explain_signal` | Explain why a signal fired — the insiders and trades counted, exclusions, and criteria | Business |
 | `get_data_quality` | Public data-quality, freshness and coverage metrics | Free |
+| `list_schedule13_dg` | Schedule 13D/13G >5% beneficial-ownership crossings for a company — filer, ownership percent, event date, form type | Business |
 
 ### Congress + convergence
 
@@ -208,7 +210,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 
 ## Prompts (6)
 
-Beyond the 29 tools, this MCP ships 6 **prompts** — ready-made research recipes that a client can list (`prompts/list`) and load (`prompts/get`) so you don't have to hand-assemble the right tool sequence yourself. Each one tells the LLM exactly which SEC Form 4 / Form 144 / 13F-HR tools to call, in what order, and how to read plan-gated results.
+Beyond the 38 tools, this MCP ships 6 **prompts** — ready-made research recipes that a client can list (`prompts/list`) and load (`prompts/get`) so you don't have to hand-assemble the right tool sequence yourself. Each one tells the LLM exactly which SEC Form 4 / Form 144 / 13F-HR tools to call, in what order, and how to read plan-gated results.
 
 | Prompt | Args | What it does |
 |---|---|---|
@@ -279,7 +281,7 @@ The MCP wraps the same backend as all of the above — every fact your LLM cites
 
 ## Plans
 
-**23 of the 36 tools work on the free plan, and every tool that is free today stays free.**
+**24 of the 38 tools work on the free plan, and every tool that is free today stays free.**
 New premium capability gets tiered as it ships; nothing that already works on your key is
 taken away later.
 
@@ -292,6 +294,7 @@ taken away later.
 | `get_insider_career_summary`, `get_insider_scorecard` | — | ✓ | ✓ |
 | `get_insider_leaderboard`, `get_signals`, `get_sentiment` | — | — | ✓ |
 | `get_form144`, `get_holdings`, `get_managers` | — | — | ✓ |
+| `explain_signal`, `list_schedule13_dg` | — | — | ✓ |
 | `list_congress_trades` | ✓ (30-day disclosure window) | ✓ (unlimited history) | ✓ (unlimited history) |
 | `list_congress_politicians`, `get_congress_politician`, `get_congress_ticker_rollup`, `get_convergence_signals` | — | ✓ | ✓ |
 | Requests/day | 500 | 50,000 | 250,000 |

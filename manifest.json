@@ -2,7 +2,7 @@
   "dxt_version": "0.1",
   "name": "form4api-mcp",
   "display_name": "Form4API — SEC Insider Trading",
-  "version": "1.7.0",
+  "version": "1.15.2",
   "description": "Production-grade SEC Form 4 insider trading data for Claude Desktop. Amendment-aware, 10b5-1 clean, with Form 144 intent-to-sell and institutional 13F-HR overlay. One MCP that replaces multiple scrapers.",
   "author": {
     "name": "Theodor Nielsen",
@@ -61,12 +61,8 @@
   },
   "tools": [
     {
-      "name": "research_company",
-      "description": "Bundled AI-ready insider-research context for a ticker: company profile, recent transactions, cluster signals, sentiment, and a computed buy/sell summary in one call."
-    },
-    {
       "name": "get_transactions",
-      "description": "Search SEC Form 4 insider transactions with filters for ticker, insider, date range, transaction codes, and 10b5-1 plan exclusion."
+      "description": "Search SEC Form 4 insider transactions with filters for ticker, insider, date range, transaction codes, 10b5-1 plan exclusion, and dollar floor."
     },
     {
       "name": "get_recent_filings",
@@ -97,10 +93,6 @@
       "description": "Cluster buy/sell signals — multiple insiders at the same company in the same direction, 10b5-1 excluded. Requires Business plan."
     },
     {
-      "name": "get_sentiment",
-      "description": "Monthly insider-sentiment score for a ticker (MSPR-style, -100 to +100), 10b5-1 excluded. Requires Business plan."
-    },
-    {
       "name": "get_form144",
       "description": "Form 144 intent-to-sell filings — early signal ~2 days before the Form 4 sale lands. Requires Business plan."
     },
@@ -113,28 +105,24 @@
       "description": "Institutional manager index with latest AUM — partial name match supported. Requires Business plan."
     },
     {
+      "name": "get_sentiment",
+      "description": "Monthly insider-sentiment score for a ticker (MSPR-style, -100 to +100), 10b5-1 excluded. Requires Business plan."
+    },
+    {
       "name": "get_insider_career_summary",
       "description": "Aggregate career rollup for an insider: total bought/sold, top companies, 10b5-1 split, return averages. Requires Pro plan."
-    },
-    {
-      "name": "get_insider_scorecard",
-      "description": "Buy track-record scorecard for an insider — hit rate and avg/median return on discretionary buys. Requires Pro plan."
-    },
-    {
-      "name": "get_insider_leaderboard",
-      "description": "Top insiders ranked by hit rate or avg return; filter by horizon, min_trades, and limit. Requires Business plan."
-    },
-    {
-      "name": "search_insiders",
-      "description": "Substring search on insider names — returns matching insider profiles and CIKs."
     },
     {
       "name": "check_usage",
       "description": "Check current API key usage stats — plan name, requests today, daily limit, all-time count."
     },
     {
-      "name": "get_key_usage",
-      "description": "API key usage stats in OpenAPI response shape."
+      "name": "verify_setup",
+      "description": "Self-test: confirms the API key is valid and the server is reachable."
+    },
+    {
+      "name": "search_insiders",
+      "description": "Substring search on insider names — returns matching insider profiles and CIKs."
     },
     {
       "name": "get_key_activity",
@@ -145,16 +133,84 @@
       "description": "Daily request counts for the last N days."
     },
     {
-      "name": "list_companies",
-      "description": "List companies sorted by name or filing count."
-    },
-    {
       "name": "list_webhooks",
       "description": "List your active webhook subscriptions."
     },
     {
       "name": "get_webhook_events",
       "description": "Replay webhook delivery events since a given timestamp."
+    },
+    {
+      "name": "list_companies",
+      "description": "List companies sorted by name or filing count."
+    },
+    {
+      "name": "get_insider_scorecard",
+      "description": "Buy track-record scorecard for an insider — hit rate and avg/median return on discretionary buys. Requires Pro plan."
+    },
+    {
+      "name": "get_insider_leaderboard",
+      "description": "Top insiders ranked by hit rate or avg return; filter by horizon, min_trades, and limit. Requires Business plan."
+    },
+    {
+      "name": "get_insider_directory",
+      "description": "Browse insiders alphabetically by surname, with an A-Z rail of counts per letter."
+    },
+    {
+      "name": "get_public_stats",
+      "description": "Public corpus-wide totals (filings, transactions, companies, 13F-HR AUM, ingestion latency). No API key required."
+    },
+    {
+      "name": "research_company",
+      "description": "Bundled AI-ready insider-research context for a ticker: company profile, recent transactions, cluster signals, sentiment, and a computed buy/sell summary in one call."
+    },
+    {
+      "name": "get_status_history",
+      "description": "Trailing 90-day daily uptime history for the public status page. No API key required."
+    },
+    {
+      "name": "health_ingestion",
+      "description": "Live ingestion-health check — Form 4 freshness, parse-queue backlog, price-feed staleness. No API key required."
+    },
+    {
+      "name": "list_congress_trades",
+      "description": "Congressional STOCK Act trades (House) — filter by ticker, politician, party, state, type, amount, or date. Free plan sees a 30-day disclosure window."
+    },
+    {
+      "name": "list_congress_politicians",
+      "description": "Ranked rollup of politicians by congressional trade activity. Requires Pro plan."
+    },
+    {
+      "name": "get_congress_politician",
+      "description": "One politician's profile by bioguide ID — totals, top traded tickers, recent trades. Requires Pro plan."
+    },
+    {
+      "name": "get_congress_ticker_rollup",
+      "description": "Which politicians traded a given ticker, with net buy/sell counts. Requires Pro plan."
+    },
+    {
+      "name": "get_convergence_signals",
+      "description": "Tickers where an insider cluster-buy and a congressional purchase fell within a trailing window. Requires Pro plan."
+    },
+    {
+      "name": "list_filings",
+      "description": "List Form 4 filings newest first, filtered by ticker, CIK, or filed-date window."
+    },
+    {
+      "name": "list_schedule13_dg",
+      "description": "Schedule 13D/13G >5% beneficial-ownership crossings for a company. Requires Business plan."
+    },
+    {
+      "name": "search",
+      "description": "Resolve a company name, ticker fragment, or person name to a ticker or CIK — the usual first call."
+    },
+    {
+      "name": "explain_signal",
+      "description": "Explain why a signal fired — the insiders and trades counted, exclusions, and criteria. Requires Business plan."
+    },
+    {
+      "name": "get_data_quality",
+      "description": "Public data-quality, freshness and coverage metrics for the dataset. No API key required."
     }
   ]
 }
