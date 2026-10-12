@@ -86,10 +86,20 @@ export async function verifySetup(_input: VerifySetupInput): Promise<VerifySetup
             detail: `Authenticated as ${body.plan ?? 'Unknown'} plan`,
           })
         } else if (res.status === 401) {
+          // API_KEY_REVOKED carries a message naming the revocation date.
+          let revokedMessage: string | undefined
+          try {
+            const body = await res.json() as { error?: { code?: string; message?: string } }
+            if (body.error?.code === 'API_KEY_REVOKED') revokedMessage = body.error.message
+          } catch {
+            // ignore parse error; fall back to the generic message
+          }
           checks.push({
             name: 'API Key: Valid (401 test)',
             status: 'fail',
-            detail: 'Invalid API key. Check FORM4API_KEY in your MCP client config.',
+            detail: revokedMessage
+              ? `${revokedMessage} Update FORM4API_KEY in your MCP client config.`
+              : 'Invalid API key. Check FORM4API_KEY in your MCP client config.',
           })
           nextSteps.push('Check that FORM4API_KEY is set to a valid key from https://www.form4api.com/dashboard')
         } else if (res.status === 402) {

@@ -150,6 +150,12 @@ async function run() {
     const err401 = await callAndCatch()
     assert(err401.payload === undefined, '401 is not shaped as an upgrade')
     assert(err401.message.includes('FORM4API_KEY'), '401 points at the key configuration')
+
+    stubFetch({ status: 401, body: envelope('API_KEY_REVOKED', 'This API key was revoked on 2026-08-20. Use your current key from https://www.form4api.com/dashboard.') })
+    const errRevoked = await callAndCatch()
+    assert(errRevoked.code === 'API_KEY_REVOKED', 'revoked 401 keeps the API_KEY_REVOKED code')
+    assert(errRevoked.message.includes('revoked on 2026-08-20'), 'revoked 401 passes the server message through')
+    assert(errRevoked.message.includes('FORM4API_KEY'), 'revoked 401 points at the key configuration')
   }
 
   globalThis.fetch = originalFetch
