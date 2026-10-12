@@ -27,6 +27,14 @@ This ensures clients can always see what tools are available in a given version 
 
 ## [Unreleased]
 
+## [1.15.3] — 2026-10-12
+
+**Tool count: 38** (unchanged). No tools added, renamed, or removed.
+
+### Changed
+- A revoked API key now surfaces as revoked. The API returns `401 API_KEY_REVOKED` with the revocation date (backend insiderapi #347, live 2026-10-12); the client previously replaced every 401 with a generic "Invalid API key" message. It now passes the API's message through with code `API_KEY_REVOKED` and points at `FORM4API_KEY`. `verify_setup` reports the same message. Unknown keys keep the existing message.
+- `explain_signal` generated description regenerated from the live spec: derivative-security rows are now listed among trades excluded from the cluster count (backend insiderapi #344).
+
 ## [1.15.2] — 2026-10-05
 
 **Tool count: 38** (unchanged). No tools added, renamed, or removed. Description-only change from regenerating against the live spec.

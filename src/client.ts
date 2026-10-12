@@ -160,6 +160,17 @@ export class Form4ApiClient {
         )
       }
 
+      // A revoked key gets its own code and a message naming the revocation
+      // date (insiderapi #347). Pass it through so the user learns the key was
+      // rotated, rather than the generic "invalid key" text below.
+      if (res.status === 401 && code === 'API_KEY_REVOKED') {
+        throw new Form4ApiError(
+          `${message} Update FORM4API_KEY in your MCP client config.`,
+          401,
+          'API_KEY_REVOKED',
+        )
+      }
+
       if (res.status === 401) {
         throw new Form4ApiError(
           this.apiKey
