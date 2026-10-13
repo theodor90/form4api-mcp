@@ -12,7 +12,7 @@ An [MCP](https://modelcontextprotocol.io) server that exposes the hosted [Form4A
 
 - 🛡 **Amendment-aware** — Form 4/A amendments are reconciled automatically. No double-counting when an insider corrects a filing.
 - 🎯 **10b5-1 clean** — every transaction flagged as pre-scheduled (10b5-1 plan) or discretionary. Cluster signals exclude planned trades by construction.
-- 📜 **Form 144 intent-to-sell** — 118K+ Form 144 filings indexed. Catch insider sales ~2 days before they hit Form 4.
+- 📜 **Form 144 intent-to-sell** — 125K+ Form 144 filings indexed. Catch insider sales ~2 days before they hit Form 4.
 - 🏛 **Institutional × insider join** — every transaction carries the current 13F-HR ownership context (top-3 holders, AUM trend) in the same response: no second call, no client-side join. Among the self-serve SEC data APIs we've surveyed, none return both sides in one query — sec-api.io and Kaleidoscope both ship 13F and insider data as separate endpoints.
 
 ---
@@ -149,7 +149,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | Tool | Description | Plan |
 |---|---|---|
 | `research_company` | Bundled insider-research context for one ticker in a single call — company profile, recent transactions, cluster signals, sentiment, and a computed buy/sell direction summary. Replaces 4 separate calls and degrades gracefully when a section needs a higher plan | Free (signals/sentiment sections need Business) |
-| `get_transactions` | Search insider transactions — filter by ticker, insider, date range, transaction codes or whole categories (`exclude_category=derivatives`), 10b5-1 plan trades, a dollar floor (`min_value`), the 13F ownership trend (`inst_ownership_trend`), or use `significant=true` for real discretionary buys/sells only. Pro adds the remaining trade-size screens (`max_value`, `min_shares`, `max_shares`) and post-trade-return screening (`min_return_1d`…`max_return_6m`, `has_returns`; returns are fractions, 0.05 = +5%). Paging depth is plan-limited — see Plans | Free |
+| `get_transactions` | Search insider transactions — filter by ticker, insider, date range, transaction codes or whole categories (`exclude_category=derivatives`), 10b5-1 plan trades, a dollar floor (`min_value`), the insider's role (`role`: officer, director or ten_percent_owner), ordering by trade size (`sort=value`; default is newest first), the 13F ownership trend (`inst_ownership_trend`), or use `significant=true` for real discretionary buys/sells only. Pro adds the remaining trade-size screens (`max_value`, `min_shares`, `max_shares`) and post-trade-return screening (`min_return_1d`…`max_return_6m`, `has_returns`; returns are fractions, 0.05 = +5%). Paging depth is plan-limited — see Plans | Free |
 | `get_recent_filings` | Most recent Form 4 filings, optionally filtered by ticker | Free |
 | `list_filings` | Form 4 filings as a paginated list, newest filed first — filter by ticker, cik, or a filed-date window. Use this to page through filings; `get_recent_filings` is the unfiltered head of the same feed | Free |
 | `get_filing` | Single filing by accession number | Free |
@@ -199,8 +199,8 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | `get_key_activity` | Recent API requests for this key | Free |
 | `get_usage_history` | Daily request counts for the last N days | Free |
 | `search_insiders` | Substring search on insider names | Free |
-| `list_webhooks` | List your webhook subscriptions | Free |
-| `get_webhook_events` | Replay webhook delivery events since a timestamp | Free |
+| `list_webhooks` | List your webhook subscriptions, with delivery health per webhook (`lastAttemptAt`, `lastSuccessAt`, `lastStatusCode`, `lastErrorClass`) and auto-disable state. Read-only | Free |
+| `get_webhook_events` | Replay webhook delivery events since a timestamp. Read-only | Free |
 | `verify_setup` | Verify the MCP is configured correctly — confirms API key is valid and server is reachable | Free |
 | `get_public_stats` | Public corpus-wide totals (filings, transactions, companies, 13F-HR AUM, ingestion latency) — no API key required | Free (keyless) |
 | `get_status_history` | Trailing 90-day daily uptime history for the public status page | Free (keyless) |
@@ -254,7 +254,7 @@ Some MCPs in this space scrape free public sites (e.g. openinsider.com) for Form
 |---|---|---|
 | Form 4/A amendment handling | ✅ reconciled automatically | ❌ double-counts |
 | 10b5-1 plan flag | ✅ exposed on every transaction | ❌ planned + discretionary mixed |
-| Form 144 intent-to-sell | ✅ 118K+ filings | ❌ not exposed |
+| Form 144 intent-to-sell | ✅ 125K+ filings | ❌ not exposed |
 | Institutional × insider join | ✅ top-3 holders + AUM trend per transaction | ❌ insider only |
 | Sentiment (10b5-1 excluded) | ✅ MSPR-style score | ❌ planned trades pollute score |
 | Source resilience | ✅ hosted API contract | ❌ breaks when source HTML changes |
@@ -267,6 +267,8 @@ If your LLM session is the start of a real research workflow that eventually wan
 ---
 
 ## Beyond MCP — when you need more
+
+**Webhook tools are read-only.** The MCP can list your webhooks (`list_webhooks`) and replay delivery events (`get_webhook_events`), nothing more. Creating, deleting, enabling and testing webhooks, and setting a custom auth header, are done through the REST API or the [dashboard](https://www.form4api.com/dashboard). This is deliberate: the MCP exposes no write tools for webhooks.
 
 The MCP is the easiest entry point. When your workflow grows past LLM-mediated research, the rest of the Form4API platform is right behind it:
 
@@ -298,7 +300,10 @@ taken away later.
 | `list_congress_trades` | ✓ (30-day disclosure window) | ✓ (unlimited history) | ✓ (unlimited history) |
 | `list_congress_politicians`, `get_congress_politician`, `get_congress_ticker_rollup`, `get_convergence_signals` | — | ✓ | ✓ |
 | Requests/day | 500 | 50,000 | 250,000 |
+| Requests/minute | 60 | 200 | 500 |
 | `get_transactions` paging depth | 20 pages | unlimited | unlimited |
+
+**Starter** sits between Free and Pro: 7,500 requests/day and 120/minute, 100 pages of `get_transactions` paging depth and a 366-day congressional history window. Tools marked Pro or Business in the table still need that plan. **Enterprise** is unlimited requests/day at 2,000/minute.
 
 For a bulk historical pull, use the REST `/v1/transactions/export` endpoint (Business) rather
 than paging — it streams the whole filtered set as CSV in one request.
@@ -329,14 +334,14 @@ free tool, so the model can simply retry without that filter.
 
 ## Data coverage
 
-- **1.3M+ Form 4 transactions** from SEC EDGAR
-- **596K+ filings** across all reporting companies
-- **118K+ Form 144** notice-of-proposed-sale filings (Business+)
-- **43M+ Form 13F-HR holdings** across 114K+ filings, $71T+ AUM in the latest complete quarter (Business+)
+- **1.38M+ Form 4 transactions** from SEC EDGAR
+- **620K+ filings** across all reporting companies
+- **125K+ Form 144** notice-of-proposed-sale filings (Business+)
+- **45M+ Form 13F-HR holdings** across 118K+ filings, $80T+ AUM in the latest complete quarter (Business+)
 - **3.3+ years of history** (since 2023-04)
 - **10b5-1 plan flag** on every transaction
 - **Amendment-aware** — Form 4/A reconciled
-- **Congressional STOCK Act trades** (Pro+) — House Clerk PTR + Senate eFD, digital filings, amounts always shown as disclosed ranges (`amountLow`/`amountHigh`), never a fabricated midpoint, plus `disclosureLagDays` on every trade (up to 45 days under the STOCK Act)
+- **Congressional STOCK Act trades** — U.S. House Clerk periodic transaction reports only (Senate eFD is not ingested). `list_congress_trades` is available on every plan with a history window by plan (Free 30 days, Starter 366 days, Pro+ unlimited); politician rollups and convergence need Pro+. Digital filings, amounts always shown as disclosed ranges (`amountLow`/`amountHigh`), never a fabricated midpoint, plus `disclosureLagDays` on every trade (up to 45 days under the STOCK Act)
 - **Real-time ingestion** — new filings within minutes of SEC publication
 
 ---
