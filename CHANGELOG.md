@@ -27,6 +27,24 @@ This ensures clients can always see what tools are available in a given version 
 
 ## [Unreleased]
 
+## [1.17.0] — 2026-10-13
+
+**Tool count: 38** (unchanged). No tools added, renamed, or removed.
+
+### Added
+- Hosted HTTP mode. Run `form4api-mcp --http` (or set `MCP_TRANSPORT=http`) to serve the same 38 tools and 6 prompts over Streamable HTTP at `POST /mcp`, with `GET /healthz` for health checks. Each request brings its own key as `Authorization: Bearer <key>` (or `X-Api-Key`); a key in the query string is ignored, and `FORM4API_KEY` is not read in this mode. The server keeps no state between requests.
+- Requests without a key can still use the keyless tools, limited per client IP (`MCP_KEYLESS_PER_MINUTE`, default 30). Over the limit the server answers HTTP 429. Requests with a key are limited by the API per user, as before. On top of that, every `/mcp` request, keyed or not, counts against a per-IP flood limit (`MCP_PER_IP_PER_MINUTE`, default 300 per minute) that also answers HTTP 429.
+- Results of the four public tools (`get_public_stats`, `get_data_quality`, `get_status_history`, `health_ingestion`) are cached in memory for 5 minutes (`MCP_CACHE_TTL_SECONDS`, up to 200 entries, successful results only), so remote users do not share one upstream rate limit. No keyed or per-user tool is ever cached.
+- Settings: `PORT` (default 3000), `HOST` (default `0.0.0.0`), `TRUST_PROXY=1` to take the client IP from `X-Forwarded-For`. Request bodies are capped at 1 MB, requests time out after 60 seconds, no CORS headers are sent, and the server logs one line per request with no keys, headers or bodies. It shuts down cleanly on SIGTERM.
+- `server.json` lists the hosted endpoint `https://mcp.form4api.com/mcp` as a `streamable-http` remote with a required secret `Authorization` header.
+- README: a "Hosted (no install)" section with setup for Claude Code, Cursor, VS Code, Claude Desktop (via `mcp-remote`) and n8n/Dify. claude.ai custom connectors and ChatGPT need OAuth, which is not supported yet.
+- Dockerfile: `EXPOSE 3000` and a healthcheck that only does anything when `MCP_TRANSPORT=http`.
+
+### Changed
+- Stdio behaviour is unchanged. Internally, tool registration moved from `src/index.ts` into `createServer(client)` in `src/server.ts`, and `Form4ApiClient` now takes the key as a constructor argument (with no argument it still reads `FORM4API_KEY`).
+- In hosted mode the User-Agent is `form4api-mcp/<version> (remote)`, and key guidance in errors and in `verify_setup` says to send an `Authorization` header instead of setting an environment variable.
+- Minimum `@modelcontextprotocol/sdk` raised from `^1.12.0` to `^1.29.0`, the version this release was built and tested on.
+
 ## [1.16.0] — 2026-10-13
 
 **Tool count: 38** (unchanged). No tools added, renamed, or removed.

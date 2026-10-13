@@ -3,17 +3,39 @@
   "name": "io.github.theodor90/form4api-mcp",
   "title": "Form4API — SEC Insider Trading",
   "description": "Real-time SEC Form 4, Form 144, 13F-HR & congressional STOCK Act insider data. 38 tools + 6 prompts.",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "websiteUrl": "https://www.form4api.com",
   "repository": {
     "url": "https://github.com/theodor90/form4api-mcp",
     "source": "github"
   },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.form4api.com/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Your Form4API key as a Bearer token. Get a free one (500 req/day, no card) at https://www.form4api.com",
+          "value": "Bearer {api_key}",
+          "isRequired": true,
+          "isSecret": true,
+          "variables": {
+            "api_key": {
+              "description": "Form4API key",
+              "isRequired": true,
+              "isSecret": true
+            }
+          }
+        }
+      ]
+    }
+  ],
   "packages": [
     {
       "registryType": "npm",
       "identifier": "form4api-mcp",
-      "version": "1.16.0",
+      "version": "1.17.0",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {
