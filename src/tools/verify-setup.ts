@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
 
-const BASE_URL = process.env.FORM4API_BASE_URL ?? 'https://api.form4api.com'
+const ENV_BASE_URL = process.env.FORM4API_BASE_URL ?? 'https://api.form4api.com'
 
 // Read version from package.json — mirrors the pattern in client.ts so the
 // User-Agent stays accurate without any additional drift risk.
@@ -13,6 +13,19 @@ const { version: PKG_VERSION } = JSON.parse(
 ) as { version: string }
 
 export const verifySetupSchema = z.object({})
+
+/**
+ * Identity to probe with. The stdio entry omits it and the tool reads
+ * FORM4API_KEY from the environment as before. The hosted HTTP mode always
+ * passes it (from the request's own key) so one caller's check can never see
+ * another caller's key or the server's environment.
+ */
+export interface VerifySetupContext {
+  apiKey: string | null
+  baseUrl: string
+  userAgent: string
+  remote: boolean
+}
 
 export type VerifySetupInput = z.infer<typeof verifySetupSchema>
 
@@ -36,19 +49,26 @@ function makeAbortSignal(): AbortSignal {
   return controller.signal
 }
 
-export async function verifySetup(_input: VerifySetupInput): Promise<VerifySetupResult> {
+export async function verifySetup(_input: VerifySetupInput, ctx?: VerifySetupContext): Promise<VerifySetupResult> {
+  const BASE_URL = ctx?.baseUrl ?? ENV_BASE_URL
+  const remote = ctx?.remote ?? false
+  const userAgent = ctx?.userAgent ?? `form4api-mcp/${PKG_VERSION}`
   try {
     const checks: Check[] = []
     const nextSteps: string[] = []
 
     // ── Check 1: Environment — FORM4API_KEY present ──────────────────────────
-    const apiKey = process.env.FORM4API_KEY
+    const apiKey = ctx ? (ctx.apiKey ?? undefined) : process.env.FORM4API_KEY
     const keyPresent = !!apiKey && apiKey.trim() !== ''
 
     checks.push({
-      name: 'Environment: FORM4API_KEY present',
+      name: remote ? 'Request: API key sent' : 'Environment: FORM4API_KEY present',
       status: keyPresent ? 'pass' : 'fail',
-      detail: keyPresent ? 'Key found' : 'FORM4API_KEY is not set',
+      detail: keyPresent
+        ? 'Key found'
+        : remote
+          ? 'No Authorization: Bearer or X-Api-Key header on this request'
+          : 'FORM4API_KEY is not set',
     })
 
     // ── Check 2: API Key — Valid (401 test via /v1/keys/usage) ───────────────
@@ -64,15 +84,19 @@ export async function verifySetup(_input: VerifySetupInput): Promise<VerifySetup
       })
       nextSteps.push(
         '1. Get a free API key at https://www.form4api.com/dashboard (500 requests/day, no credit card)',
-        '2. Add it to your MCP client config: "env": { "FORM4API_KEY": "your-key-here" }',
-        '3. Or set it inline: FORM4API_KEY=your-key npx form4api-mcp',
+        ...(remote
+          ? ['2. Add a header to your MCP client config: Authorization: Bearer <your key>']
+          : [
+              '2. Add it to your MCP client config: "env": { "FORM4API_KEY": "your-key-here" }',
+              '3. Or set it inline: FORM4API_KEY=your-key npx form4api-mcp',
+            ]),
       )
     } else {
       try {
         const res = await fetch(`${BASE_URL}/v1/keys/usage`, {
           headers: {
             'X-Api-Key': apiKey.trim(),
-            'User-Agent': `form4api-mcp/${PKG_VERSION}`,
+            'User-Agent': userAgent,
           },
           signal: makeAbortSignal(),
         })
@@ -98,10 +122,10 @@ export async function verifySetup(_input: VerifySetupInput): Promise<VerifySetup
             name: 'API Key: Valid (401 test)',
             status: 'fail',
             detail: revokedMessage
-              ? `${revokedMessage} Update FORM4API_KEY in your MCP client config.`
-              : 'Invalid API key. Check FORM4API_KEY in your MCP client config.',
+              ? `${revokedMessage} Update ${remote ? 'the Authorization header' : 'FORM4API_KEY'} in your MCP client config.`
+              : `Invalid API key. Check ${remote ? 'the Authorization header' : 'FORM4API_KEY'} in your MCP client config.`,
           })
-          nextSteps.push('Check that FORM4API_KEY is set to a valid key from https://www.form4api.com/dashboard')
+          nextSteps.push(`Check that ${remote ? 'the Authorization header carries' : 'FORM4API_KEY is set to'} a valid key from https://www.form4api.com/dashboard`)
         } else if (res.status === 402) {
           let body: { currentPlan?: string; required_plan?: string } = {}
           try {
