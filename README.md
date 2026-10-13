@@ -17,6 +17,63 @@ An [MCP](https://modelcontextprotocol.io) server that exposes the hosted [Form4A
 
 ---
 
+## Hosted (no install)
+
+Nothing to install or run: point your client at the hosted server and send your API key as a header. Same 38 tools and 6 prompts. Get a free key (500 requests/day, no card) at [www.form4api.com](https://www.form4api.com) → Dashboard.
+
+- **URL:** `https://mcp.form4api.com/mcp` (Streamable HTTP)
+- **Auth:** `Authorization: Bearer YOUR_API_KEY` (an `X-Api-Key: YOUR_API_KEY` header also works). Keys in the query string are ignored.
+- **No key:** the keyless tools (`get_public_stats`, `get_data_quality`, `get_status_history`, `verify_setup`) still work, limited to 30 requests per minute per IP. Every other tool asks you to send a key.
+
+**Claude Code:**
+```sh
+claude mcp add --transport http form4api https://mcp.form4api.com/mcp --header "Authorization: Bearer YOUR_API_KEY"
+```
+
+**Cursor** (`~/.cursor/mcp.json` or `.cursor/mcp.json`):
+```json
+{
+  "mcpServers": {
+    "form4api": {
+      "url": "https://mcp.form4api.com/mcp",
+      "headers": { "Authorization": "Bearer YOUR_API_KEY" }
+    }
+  }
+}
+```
+
+**VS Code** (`.vscode/mcp.json`; note the `servers` key):
+```json
+{
+  "servers": {
+    "form4api": {
+      "type": "http",
+      "url": "https://mcp.form4api.com/mcp",
+      "headers": { "Authorization": "Bearer YOUR_API_KEY" }
+    }
+  }
+}
+```
+
+**Claude Desktop** (via [`mcp-remote`](https://www.npmjs.com/package/mcp-remote), which needs Node 18+). Put the whole header value in `env` so the space in `Bearer YOUR_API_KEY` survives Windows argument parsing:
+```json
+{
+  "mcpServers": {
+    "form4api": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.form4api.com/mcp", "--header", "Authorization:${AUTH_HEADER}"],
+      "env": { "AUTH_HEADER": "Bearer YOUR_API_KEY" }
+    }
+  }
+}
+```
+
+**n8n, Dify and other HTTP-capable agents:** add an MCP client/tool with the URL `https://mcp.form4api.com/mcp`, transport Streamable HTTP, and one header `Authorization` = `Bearer YOUR_API_KEY`.
+
+**claude.ai custom connectors and ChatGPT** sign in with OAuth, which the hosted server does not support yet. It is coming later. Until then, use one of the clients above or the local install below.
+
+---
+
 ## Quick install
 
 ### 1. Get a free API key
@@ -132,6 +189,24 @@ Once you like what you see, sign up for a free key at [www.form4api.com](https:/
 
 ```bash
 FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
+```
+
+### 4. Run your own HTTP server
+
+The package can also serve the hosted mode itself (this is what runs at `mcp.form4api.com`):
+
+```bash
+npx form4api-mcp --http          # or: MCP_TRANSPORT=http npx form4api-mcp
+```
+
+It listens on `PORT` (default 3000) and `HOST` (default `0.0.0.0`). `POST /mcp` is the stateless Streamable HTTP endpoint, `GET /healthz` is a health check. Each request carries its own key (`Authorization: Bearer ...` or `X-Api-Key`); `FORM4API_KEY` is not read in this mode. Other settings: `MCP_KEYLESS_PER_MINUTE` (default 30, per-IP limit for requests without a key), `MCP_PER_IP_PER_MINUTE` (default 300, per-IP limit for all requests), `MCP_CACHE_TTL_SECONDS` (default 300, cache for the four public tools) and `TRUST_PROXY=1` (take the client IP from the first `X-Forwarded-For` hop; set it only behind your own proxy). Bodies are capped at 1 MB and requests time out after 60 seconds. It sets no CORS headers and logs one line per request with no keys, headers or bodies.
+
+With Docker:
+
+```bash
+docker build -t form4api-mcp .
+docker run -p 3000:3000 -e MCP_TRANSPORT=http form4api-mcp   # HTTP mode (healthcheck active)
+docker run -i -e FORM4API_KEY=YOUR_API_KEY form4api-mcp   # stdio mode (default)
 ```
 
 ---
