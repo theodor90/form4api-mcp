@@ -96,6 +96,14 @@ export const getTransactionsSchema = z.object({
     .enum(['increasing', 'decreasing', 'stable'])
     .optional()
     .describe('Filter by the trailing quarter-over-quarter trend in institutional (13F) ownership of the underlying company. No effect if institutional-ownership enrichment is disabled server-side; rows where the trend was suppressed for insufficient 13F coverage still match "stable".'),
+  role: z
+    .enum(['officer', 'director', 'ten_percent_owner'])
+    .optional()
+    .describe('Filter by the insider\'s role: "officer", "director", or "ten_percent_owner". Matches the isOfficer / isDirector / isTenPercentOwner flags on each row.'),
+  sort: z
+    .enum(['date', 'value'])
+    .optional()
+    .describe('Result ordering: "date" (default — most recent transaction date first) or "value" (largest transaction value first, computed as sharesAmount * pricePerShare; null-price rows sort last). Value ordering is applied server-side across the full filtered set before pagination, so page 1 is the true top-by-value.'),
   from: z.string().optional().describe('Start date, inclusive, format YYYY-MM-DD (e.g. 2026-01-01). Filters on transactionDate.'),
   to: z.string().optional().describe('End date, inclusive, format YYYY-MM-DD (e.g. 2026-12-31). Filters on transactionDate.'),
   filed_from: z.string().optional().describe('Inclusive start of the filed-date window, format YYYY-MM-DD. Filters on Filing.FiledAt (when the filing became public), not transactionDate — the two can differ by days to weeks. Use this to replay disclosures in the order the market actually saw them.'),
@@ -135,6 +143,8 @@ export async function getTransactions(client: Form4ApiClient, input: GetTransact
     max_return_6m: input.max_return_6m,
     has_returns: input.has_returns,
     inst_ownership_trend: input.inst_ownership_trend,
+    role: input.role,
+    sort: input.sort,
     from: input.from,
     to: input.to,
     filed_from: input.filed_from,

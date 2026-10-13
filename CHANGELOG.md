@@ -27,6 +27,18 @@ This ensures clients can always see what tools are available in a given version 
 
 ## [Unreleased]
 
+## [1.16.0] — 2026-10-13
+
+**Tool count: 38** (unchanged). No tools added, renamed, or removed.
+
+### Added
+- `get_transactions` gains two filters from the API spec: `role` (`officer`, `director` or `ten_percent_owner`) and `sort` (`date`, the default, or `value` for largest trade first, applied across the full filtered set before paging).
+
+### Changed
+- `list_webhooks` generated description regenerated from the live spec: each webhook now reports `lastAttemptAt`, `lastSuccessAt`, `lastStatusCode` and `lastErrorClass` (backend insiderapi #348), plus `authHeaderName`, the name of the custom auth header sent with each delivery (#349). The 48-hour auto-disable grace period and custom auth header setup are REST-only and have no MCP tool.
+- README: the congressional data line now says House Clerk PTRs only (Senate is not ingested) and that `list_congress_trades` is on every plan with a history window by plan (Free 30 days, Starter 366 days, Pro+ unlimited). The Plans section adds Starter and Enterprise quotas and per-minute limits. Corpus numbers refreshed. States plainly that the webhook tools are read-only; creating, deleting, enabling, testing and auth headers go through the REST API or dashboard.
+- `manifest.json` description now mentions congressional trades and the convergence signal.
+
 ## [1.15.3] — 2026-10-12
 
 **Tool count: 38** (unchanged). No tools added, renamed, or removed.
