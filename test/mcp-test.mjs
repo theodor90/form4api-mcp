@@ -1,7 +1,7 @@
 /**
  * MCP protocol test — spawns the server and verifies:
  *  1. initialize handshake
- *  2. tools/list returns all 38 tools with correct names
+ *  2. tools/list returns all 39 tools with correct names
  *  3. prompts/list returns all 6 recipe prompts
  *  4. prompts/get returns rendered messages for a sample of prompts
  *  5. (optional) live tool call if FORM4API_KEY is set
@@ -92,11 +92,11 @@ async function runTest() {
     server.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n')
 
     // ── Test 2: tools/list ────────────────────────────────────────────────
-    console.log('\n[2] tools/list — 38 tools registered')
+    console.log('\n[2] tools/list — 39 tools registered')
     const listRes = await send('tools/list', {})
     const toolNames = (listRes.result?.tools ?? []).map(t => t.name)
     assert(!listRes.error, 'no error in tools/list response')
-    assert(toolNames.length === 38, `38 tools returned (got ${toolNames.length})`)
+    assert(toolNames.length === 39, `39 tools returned (got ${toolNames.length})`)
     for (const name of EXPECTED_TOOLS) {
       assert(toolNames.includes(name), `tool "${name}" present`)
     }

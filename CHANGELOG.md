@@ -27,6 +27,13 @@ This ensures clients can always see what tools are available in a given version 
 
 ## [Unreleased]
 
+## [1.17.0] — 2026-10-14
+
+**Tool count: 39** (was 38). One tool added, none renamed or removed.
+
+### Added
+- `get_company_peers` (codegen'd from `GET /v1/companies/{ticker}/peers`): similar companies in the same SIC industry, ranked by Form 4 filings in the trailing 12 months. Takes `ticker` and optional `limit` (default 10, clamped 1-25). Same 4-digit SIC first, topped up from the 2-digit prefix; each peer carries `matchLevel`, `filings12m`, `cik`; `basis` reports `sic4`, `sic2`, `mixed` or `none` (no SIC code returns an empty list, not an error). Free plan, unknown ticker returns 404.
+
 ## [1.16.0] — 2026-10-13
 
 **Tool count: 38** (unchanged). No tools added, renamed, or removed.

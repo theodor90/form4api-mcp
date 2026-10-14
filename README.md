@@ -1,6 +1,6 @@
 # form4api-mcp
 
-> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay, plus congressional STOCK Act trades and insider/Congress convergence** — 38 tools + 6 ready-made research prompts
+> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay, plus congressional STOCK Act trades and insider/Congress convergence** — 39 tools + 6 ready-made research prompts
 
 [![npm version](https://badge.fury.io/js/form4api-mcp.svg)](https://www.npmjs.com/package/form4api-mcp)
 [![Available on mcp.so](https://img.shields.io/badge/mcp.so-form4api-blue)](https://mcp.so)
@@ -136,7 +136,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 
 ---
 
-## Available tools (38)
+## Available tools (39)
 
 ### Search
 
@@ -157,6 +157,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | `get_insider_transactions` | All transactions for a specific insider (by CIK) | Free |
 | `get_company_overview` | Company profile — name, CIK, SIC sector, state, website, filing counts | Free |
 | `get_company_insiders` | All insiders who have filed Form 4s for a company | Free |
+| `get_company_peers` | Similar companies in the same SIC industry (4-digit first, topped up from the 2-digit prefix), ranked by Form 4 filings in the last 12 months | Free |
 | `list_companies` | List companies, sorted by name or filing count | Free |
 | `get_insider_directory` | Browse insiders alphabetically by surname — an A-Z rail with a count per letter, plus one page of insiders under the requested letter | Free |
 | `get_insider_career_summary` | Aggregate career rollup: total bought/sold, top companies, 10b5-1 split, return averages | Pro |
@@ -210,7 +211,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 
 ## Prompts (6)
 
-Beyond the 38 tools, this MCP ships 6 **prompts** — ready-made research recipes that a client can list (`prompts/list`) and load (`prompts/get`) so you don't have to hand-assemble the right tool sequence yourself. Each one tells the LLM exactly which SEC Form 4 / Form 144 / 13F-HR tools to call, in what order, and how to read plan-gated results.
+Beyond the 39 tools, this MCP ships 6 **prompts** — ready-made research recipes that a client can list (`prompts/list`) and load (`prompts/get`) so you don't have to hand-assemble the right tool sequence yourself. Each one tells the LLM exactly which SEC Form 4 / Form 144 / 13F-HR tools to call, in what order, and how to read plan-gated results.
 
 | Prompt | Args | What it does |
 |---|---|---|
@@ -283,7 +284,7 @@ The MCP wraps the same backend as all of the above — every fact your LLM cites
 
 ## Plans
 
-**24 of the 38 tools work on the free plan, and every tool that is free today stays free.**
+**25 of the 39 tools work on the free plan, and every tool that is free today stays free.**
 New premium capability gets tiered as it ships; nothing that already works on your key is
 taken away later.
 
@@ -292,7 +293,7 @@ taken away later.
 | `search` | ✓ | ✓ | ✓ |
 | `get_transactions`, `get_recent_filings`, `get_filing` | ✓ | ✓ | ✓ |
 | `get_insider_profile`, `get_insider_transactions` | ✓ | ✓ | ✓ |
-| `get_company_overview`, `get_company_insiders` | ✓ | ✓ | ✓ |
+| `get_company_overview`, `get_company_insiders`, `get_company_peers` | ✓ | ✓ | ✓ |
 | `get_insider_career_summary`, `get_insider_scorecard` | — | ✓ | ✓ |
 | `get_insider_leaderboard`, `get_signals`, `get_sentiment` | — | — | ✓ |
 | `get_form144`, `get_holdings`, `get_managers` | — | — | ✓ |
