@@ -40,6 +40,20 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
       }),
   },
   {
+    name: 'get_company_peers',
+    operationId: 'GetCompanyPeers',
+    method: 'GET',
+    path: '/v1/companies/{ticker}/peers',
+    description: "Peer companies in the same SIC industry, ranked by recent Form 4 activity. Returns other tracked companies in the same industry as the given ticker, for \"similar companies\" links. Candidates share the company's 4-digit SIC code (matchLevel \"sic4\"); when too few of those have Form 4 filings in the last 12 months to fill `limit`, companies sharing only the 2-digit SIC prefix (matchLevel \"sic2\") are added. Active peers (at least one Form 4 filing dated in the trailing 12 months, `filings12m`) come first, sic4 before sic2, each tier ordered by `filings12m` descending then ticker ascending; peers with no filings in the window are appended last only if there is still room. The company itself is excluded, as are companies without a ticker or without a usable SIC code. `basis` is \"sic4\", \"sic2\" or \"mixed\" according to the match levels present in `peers`, and \"none\" when `peers` is empty (including when the company has no SIC code, which is 200 with an empty list, not 404). `limit` defaults to 10 and is clamped to 1-25. Returns 404 NOT_FOUND if the ticker isn't tracked. Not plan-gated. Results are cached for a few hours.",
+    schema: {
+  ticker: z.string().describe(`Company ticker symbol, case-insensitive (e.g. "AAPL").`),
+  limit: z.number().int().optional().describe(`Maximum number of peers to return. Defaults to 10, clamped to 1-25.`),
+    },
+    handler: async (client, input) => client.get<unknown>(`/v1/companies/${encodeURIComponent(String(input.ticker))}/peers`, {
+        limit: input.limit as never,
+      }),
+  },
+  {
     name: 'get_congress_politician',
     operationId: 'GetCongressPolitician',
     method: 'GET',
@@ -348,7 +362,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'ListWebhooks',
     method: 'GET',
     path: '/v1/webhooks',
-    description: "List webhook subscriptions owned by the authenticated API key. Returns active webhook subscriptions under the authenticated API key, plus any the system auto-disabled after sustained delivery failures (disabledReason \"delivery_failures\") — those stay visible with disabledAt/disabledReason set so you can see why delivery stopped and reverse it with POST /v1/webhooks/{id}/enable. Subscriptions you deleted yourself (disabledReason \"user_deleted\") are never returned here again, and neither are legacy rows disabled before this field existed (disabledReason null) — both are permanently gone from this list. Each entry: subscription id, target URL, subscribed event types, creation date, active flag, disabledAt/disabledReason (both null while active), and the isReadOnly flag. Delivery health, all nullable: lastAttemptAt (when the most recent delivery attempt, first attempt or retry, finished; null if none yet), lastSuccessAt (when the most recent attempt that got a 2xx finished), lastStatusCode (HTTP status of the most recent attempt; null when no response was received, e.g. timeout or connection failure), and lastErrorClass (why the most recent attempt failed, null if it succeeded or none has been made: HTTP_4XX, HTTP_5XX, HTTP_OTHER, TIMEOUT, DNS, TLS, CONNECT_REFUSED, URL_REJECTED, CIRCUIT_OPEN or OTHER). These reflect only attempts made after this field was introduced; older subscriptions show null until their next attempt. authHeaderName is the name of the custom auth header sent with each delivery (null if none is set); its value is never returned. Does NOT return the signing secret again (it's shown once, at creation, by POST /v1/webhooks) — regenerate by deleting and recreating the subscription if it's lost. Requires a valid X-Api-Key (401 without one).",
+    description: "List webhook subscriptions owned by the authenticated API key. Returns active webhook subscriptions under the authenticated API key, plus any the system auto-disabled after sustained delivery failures (disabledReason \"delivery_failures\") — those stay visible with disabledAt/disabledReason set so you can see why delivery stopped and reverse it with POST /v1/webhooks/{id}/enable. Subscriptions you deleted yourself (disabledReason \"user_deleted\") are never returned here again, and neither are legacy rows disabled before this field existed (disabledReason null) — both are permanently gone from this list. Each entry: subscription id, target URL, subscribed event types, creation date, active flag, disabledAt/disabledReason (both null while active), and the isReadOnly flag. Delivery health, all nullable: lastAttemptAt (when the most recent delivery attempt, first attempt or retry, finished; null if none yet), lastSuccessAt (when the most recent attempt that got a 2xx finished), lastStatusCode (HTTP status of the most recent attempt; null when no response was received, e.g. timeout or connection failure), and lastErrorClass (why the most recent attempt failed, null if it succeeded or none has been made: HTTP_4XX, HTTP_5XX, HTTP_OTHER, TIMEOUT, DNS, TLS, CONNECT_REFUSED, URL_REJECTED, CIRCUIT_OPEN or OTHER). These reflect only attempts made after this field was introduced; older subscriptions show null until their next attempt. authHeaderName is the name of the custom auth header sent with each delivery (null if none is set); its value is never returned. urlWarning is a string when the URL's host is a temporary tunnel or test host (for example trycloudflare.com, ngrok or webhook.site), otherwise null. Change a subscription's URL with PATCH /v1/webhooks/{id}. Does NOT return the signing secret again (it's shown once, at creation, by POST /v1/webhooks) — regenerate by deleting and recreating the subscription if it's lost. Requires a valid X-Api-Key (401 without one).",
     schema: {
 
     },
