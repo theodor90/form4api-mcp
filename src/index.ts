@@ -240,7 +240,7 @@ server.tool(
 
 server.tool(
   'get_insider_career_summary',
-  'Aggregate career rollup for one insider by CIK — first/last transaction dates, total shares/value bought vs sold, top companies traded, transaction-code breakdown, 10b5-1 plan split, and average post-trade returns (stored as fractions, e.g. 0.05 = +5%). Use this instead of get_insider_transactions when you want a pre-computed summary rather than raw rows; pair with the generated get_insider_scorecard for hit-rate statistics on their discretionary buys specifically. Requires Pro plan.',
+  'Aggregate career rollup for one insider by CIK — first/last transaction dates, total shares/value bought vs sold, top companies traded, transaction-code breakdown, 10b5-1 plan split, and median post-trade returns (stored as fractions, e.g. 0.05 = +5%). Use this instead of get_insider_transactions when you want a pre-computed summary rather than raw rows; pair with the generated get_insider_scorecard for hit-rate statistics on their discretionary buys specifically. Requires Pro plan.',
   getInsiderCareerSummarySchema.shape,
   READ_ONLY,
   async (input) => {

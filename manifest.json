@@ -114,7 +114,7 @@
     },
     {
       "name": "get_insider_career_summary",
-      "description": "Aggregate career rollup for an insider: total bought/sold, top companies, 10b5-1 split, return averages. Requires Pro plan."
+      "description": "Aggregate career rollup for an insider: total bought/sold, top companies, 10b5-1 split, median returns. Requires Pro plan."
     },
     {
       "name": "check_usage",

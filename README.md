@@ -160,7 +160,7 @@ FORM4API_KEY=YOUR_API_KEY npx form4api-mcp
 | `get_company_peers` | Similar companies in the same SIC industry (4-digit first, topped up from the 2-digit prefix), ranked by Form 4 filings in the last 12 months | Free |
 | `list_companies` | List companies, sorted by name or filing count | Free |
 | `get_insider_directory` | Browse insiders alphabetically by surname — an A-Z rail with a count per letter, plus one page of insiders under the requested letter | Free |
-| `get_insider_career_summary` | Aggregate career rollup: total bought/sold, top companies, 10b5-1 split, return averages | Pro |
+| `get_insider_career_summary` | Aggregate career rollup: total bought/sold, top companies, 10b5-1 split, median returns | Pro |
 | `get_insider_scorecard` | Buy track-record scorecard for an insider (CIK) — hit rate and avg/median return on discretionary open-market buys; null when fewer than 5 matured samples | Pro |
 | `get_insider_leaderboard` | Top insiders ranked by `hit_rate` or `avg_return`; filter by `horizon` (3m/6m), `min_trades`, and `limit` | Business |
 
