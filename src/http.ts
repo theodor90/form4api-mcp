@@ -10,6 +10,7 @@
 // duration, keyed yes/no). Header values, keys and bodies are never logged.
 
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import net from 'node:net'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { Form4ApiClient, VERSION } from './client.js'
 import { createServer } from './server.js'
@@ -22,8 +23,18 @@ export interface HttpOptions {
   trustProxy: boolean
   /** Requests per minute per client IP for requests that carry no key. */
   keylessPerMinute: number
-  /** Requests per minute per client IP across ALL /mcp requests, keyed or not (flood guard). */
+  /** Requests per minute across ALL clients for requests that carry no key. 0 = off. */
+  keylessGlobalPerMinute: number
+  /**
+   * Requests per minute per client IP across ALL /mcp requests, keyed or not (flood guard).
+   * 0 = off, which is the default: the API already limits keyed callers per user, and many
+   * users share the same few addresses when they connect through a hosted client.
+   */
   perIpPerMinute: number
+  /** CIDR ranges (valid entries only) whose clients skip the per-IP limits. Still counted in the global keyless budget. */
+  trustedProxyCidrs: string[]
+  /** Entries of MCP_TRUSTED_PROXY_CIDRS that were not valid CIDRs; ignored, reported once at startup. */
+  invalidTrustedCidrs: string[]
   /** TTL for cached public (keyless) tool results, in milliseconds. */
   cacheTtlMs: number
   /** Request body cap in bytes. */
@@ -41,12 +52,16 @@ export function httpOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): HttpOp
     const n = Number.parseInt(v ?? '', 10)
     return Number.isFinite(n) && n > 0 ? n : d
   }
+  const { valid, invalid } = parseCidrList(env.MCP_TRUSTED_PROXY_CIDRS)
   return {
     port: v0(env.PORT, 3000),
     host: env.HOST || '0.0.0.0',
     trustProxy: env.TRUST_PROXY === '1',
-    keylessPerMinute: int(env.MCP_KEYLESS_PER_MINUTE, 30),
-    perIpPerMinute: int(env.MCP_PER_IP_PER_MINUTE, 300),
+    keylessPerMinute: int(env.MCP_KEYLESS_PER_MINUTE, 120),
+    keylessGlobalPerMinute: v0(env.MCP_KEYLESS_GLOBAL_PER_MINUTE, 1200),
+    perIpPerMinute: v0(env.MCP_PER_IP_PER_MINUTE, 0),
+    trustedProxyCidrs: valid,
+    invalidTrustedCidrs: invalid,
     cacheTtlMs: int(env.MCP_CACHE_TTL_SECONDS, 300) * 1000,
     maxBodyBytes: 1024 * 1024,
     requestTimeoutMs: 60_000,
@@ -54,10 +69,62 @@ export function httpOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): HttpOp
   }
 }
 
-// PORT=0 is valid (ephemeral port), so it cannot go through the "positive int" helper.
+// PORT=0 is valid (ephemeral port), and 0 means "off" for the limit settings,
+// so these cannot go through the "positive int" helper.
 function v0(v: string | undefined, d: number): number {
   const n = Number.parseInt(v ?? '', 10)
   return Number.isFinite(n) && n >= 0 ? n : d
+}
+
+// ── Trusted proxy ranges ────────────────────────────────────────────────────
+
+/** Splits a comma-separated list of IPv4/IPv6 CIDRs (a bare address counts as /32 or /128). Never throws. */
+export function parseCidrList(raw: string | undefined): { valid: string[]; invalid: string[] } {
+  const valid: string[] = []
+  const invalid: string[] = []
+  for (const entry of (raw ?? '').split(',').map((s) => s.trim()).filter(Boolean)) {
+    if (cidrParts(entry)) valid.push(entry)
+    else invalid.push(entry)
+  }
+  return { valid, invalid }
+}
+
+function cidrParts(entry: string): { addr: string; prefix: number; family: 'ipv4' | 'ipv6' } | null {
+  const [addr, rest, ...extra] = entry.split('/')
+  if (extra.length > 0) return null
+  const ver = net.isIP(addr)
+  if (ver === 0) return null
+  const max = ver === 4 ? 32 : 128
+  let prefix = max
+  if (rest !== undefined) {
+    if (!/^\d{1,3}$/.test(rest)) return null
+    prefix = Number(rest)
+    if (prefix > max) return null
+  }
+  return { addr, prefix, family: ver === 4 ? 'ipv4' : 'ipv6' }
+}
+
+function buildBlockList(entries: string[]): net.BlockList | null {
+  const list = new net.BlockList()
+  let n = 0
+  for (const entry of entries) {
+    const p = cidrParts(entry)
+    if (!p) continue
+    list.addSubnet(p.addr, p.prefix, p.family)
+    n++
+  }
+  return n > 0 ? list : null
+}
+
+function isTrusted(list: net.BlockList | null, ip: string): boolean {
+  if (!list) return false
+  const ver = net.isIP(ip)
+  if (ver === 0) return false
+  try {
+    return list.check(ip, ver === 4 ? 'ipv4' : 'ipv6')
+  } catch {
+    return false
+  }
 }
 
 // ── Keyless token bucket ────────────────────────────────────────────────────
@@ -192,16 +259,31 @@ function readBody(req: IncomingMessage, max: number): Promise<Buffer> {
 // ── Server ──────────────────────────────────────────────────────────────────
 
 export interface Guards {
+  /** Per-IP limit for keyless requests. */
   keyless: KeylessLimiter
-  flood: KeylessLimiter
+  /** One shared budget for all keyless requests, from every address. Null when off. */
+  keylessGlobal: KeylessLimiter | null
+  /** Optional per-IP limit across all /mcp requests. Null when off (the default). */
+  flood: KeylessLimiter | null
+  /** Clients inside these ranges skip the per-IP limits. Null when none are configured. */
+  trusted: net.BlockList | null
   cache: TtlCache
 }
 
-export function createHttpApp(opts: HttpOptions): { server: Server; limiter: KeylessLimiter; flood: KeylessLimiter; cache: TtlCache } {
+const GLOBAL_KEY = 'global'
+
+export function createHttpApp(opts: HttpOptions): {
+  server: Server
+  limiter: KeylessLimiter
+  keylessGlobal: KeylessLimiter | null
+  flood: KeylessLimiter | null
+  cache: TtlCache
+} {
   const limiter = new KeylessLimiter(opts.keylessPerMinute)
-  const flood = new KeylessLimiter(opts.perIpPerMinute)
+  const keylessGlobal = opts.keylessGlobalPerMinute > 0 ? new KeylessLimiter(opts.keylessGlobalPerMinute) : null
+  const flood = opts.perIpPerMinute > 0 ? new KeylessLimiter(opts.perIpPerMinute) : null
   const cache = new TtlCache(opts.cacheTtlMs, 200)
-  const guards: Guards = { keyless: limiter, flood, cache }
+  const guards: Guards = { keyless: limiter, keylessGlobal, flood, trusted: buildBlockList(opts.trustedProxyCidrs), cache }
 
   const server = createHttpServer((req, res) => {
     const started = Date.now()
@@ -231,7 +313,7 @@ export function createHttpApp(opts: HttpOptions): { server: Server; limiter: Key
 
   server.requestTimeout = opts.requestTimeoutMs
   server.headersTimeout = 30_000
-  return { server, limiter, flood, cache }
+  return { server, limiter, keylessGlobal, flood, cache }
 }
 
 async function handle(
@@ -264,31 +346,54 @@ async function handle(
     return
   }
 
-  // Flood guard: every /mcp request, keyed or not. A junk key must not skip limiting.
   const ip = clientIp(req, opts.trustProxy)
-  const floodWait = guards.flood.take(ip)
-  if (floodWait > 0) {
-    send(res, 429, jsonRpcError(-32029, `Too many requests from this address. Retry in ${floodWait}s.`), {
-      'Retry-After': String(floodWait),
-    })
-    return
+  const trusted = isTrusted(guards.trusted, ip)
+
+  // Optional per-IP flood guard (off by default): every /mcp request, keyed or not.
+  if (guards.flood && !trusted) {
+    const floodWait = guards.flood.take(ip)
+    if (floodWait > 0) {
+      send(res, 429, jsonRpcError(-32029, `Too many requests from this address. Retry in ${floodWait}s.`), {
+        'Retry-After': String(floodWait),
+      })
+      return
+    }
   }
 
-  // Keyless requests get an extra, stricter limit. Valid keys are also limited by the API per user.
+  // Keyed requests are not limited here: the API limits each key per user.
+  // Keyless requests get a per-IP limit (skipped for trusted ranges) and a shared global budget.
   if (key === null) {
-    const wait = guards.keyless.take(ip)
-    if (wait > 0) {
-      send(
-        res,
-        429,
-        jsonRpcError(
-          -32029,
-          `Too many keyless requests. Retry in ${wait}s, or send "Authorization: Bearer <your key>" ` +
-            '(free key at https://www.form4api.com/dashboard) to lift this limit.',
-        ),
-        { 'Retry-After': String(wait) },
-      )
-      return
+    if (!trusted) {
+      const wait = guards.keyless.take(ip)
+      if (wait > 0) {
+        send(
+          res,
+          429,
+          jsonRpcError(
+            -32029,
+            `Too many keyless requests from this address. Retry in ${wait}s, or send "Authorization: Bearer <your key>" ` +
+              '(free key at https://www.form4api.com/dashboard) to lift this limit.',
+          ),
+          { 'Retry-After': String(wait) },
+        )
+        return
+      }
+    }
+    if (guards.keylessGlobal) {
+      const wait = guards.keylessGlobal.take(GLOBAL_KEY)
+      if (wait > 0) {
+        send(
+          res,
+          429,
+          jsonRpcError(
+            -32029,
+            `The shared keyless request budget is used up. Retry in ${wait}s, or send "Authorization: Bearer <your key>" ` +
+              '(free key at https://www.form4api.com/dashboard) to skip this limit.',
+          ),
+          { 'Retry-After': String(wait) },
+        )
+        return
+      }
     }
   }
 
@@ -336,7 +441,14 @@ async function handle(
 export function startHttpServer(opts: HttpOptions = httpOptionsFromEnv()): Server {
   const { server, limiter, flood } = createHttpApp(opts)
 
-  const sweeper = setInterval(() => { limiter.sweep(); flood.sweep() }, 60_000)
+  if (opts.invalidTrustedCidrs.length > 0) {
+    const shown = opts.invalidTrustedCidrs.slice(0, 5).map((s) => JSON.stringify(s.slice(0, 64))).join(', ')
+    process.stderr.write(
+      `warning: ignoring ${opts.invalidTrustedCidrs.length} malformed MCP_TRUSTED_PROXY_CIDRS entr${opts.invalidTrustedCidrs.length === 1 ? 'y' : 'ies'}: ${shown}\n`,
+    )
+  }
+
+  const sweeper = setInterval(() => { limiter.sweep(); flood?.sweep() }, 60_000)
   sweeper.unref()
 
   server.listen(opts.port, opts.host, () => {

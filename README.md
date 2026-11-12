@@ -1,6 +1,6 @@
 # form4api-mcp
 
-> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay, plus congressional STOCK Act trades and insider/Congress convergence** — 39 tools + 6 ready-made research prompts
+> Production-grade SEC Form 4 insider trading data for any MCP-compatible AI assistant — **amendment-aware, 10b5-1 clean, with Form 144 + institutional 13F-HR overlay, plus congressional STOCK Act trades and insider/Congress convergence** — 40 tools + 6 ready-made research prompts
 
 [![npm version](https://badge.fury.io/js/form4api-mcp.svg)](https://www.npmjs.com/package/form4api-mcp)
 [![Available on mcp.so](https://img.shields.io/badge/mcp.so-form4api-blue)](https://mcp.so)
@@ -19,11 +19,11 @@ An [MCP](https://modelcontextprotocol.io) server that exposes the hosted [Form4A
 
 ## Hosted (no install)
 
-Nothing to install or run: point your client at the hosted server and send your API key as a header. Same 39 tools and 6 prompts. Get a free key (500 requests/day, no card) at [www.form4api.com](https://www.form4api.com) → Dashboard.
+Nothing to install or run: point your client at the hosted server and send your API key as a header. Same 40 tools and 6 prompts. Get a free key (500 requests/day, no card) at [www.form4api.com](https://www.form4api.com) → Dashboard.
 
 - **URL:** `https://mcp.form4api.com/mcp` (Streamable HTTP)
 - **Auth:** `Authorization: Bearer YOUR_API_KEY` (an `X-Api-Key: YOUR_API_KEY` header also works). Keys in the query string are ignored.
-- **No key:** the keyless tools (`get_public_stats`, `get_data_quality`, `get_status_history`, `verify_setup`) still work, limited to 30 requests per minute per IP. Every other tool asks you to send a key.
+- **No key:** the keyless tools (`get_public_stats`, `get_data_quality`, `get_status_history`, `verify_setup`) still work, limited to 120 requests per minute per IP (and 1200 per minute across all keyless callers). Every other tool asks you to send a key.
 
 **Claude Code:**
 ```sh
@@ -199,7 +199,7 @@ The package can also serve the hosted mode itself (this is what runs at `mcp.for
 npx form4api-mcp --http          # or: MCP_TRANSPORT=http npx form4api-mcp
 ```
 
-It listens on `PORT` (default 3000) and `HOST` (default `0.0.0.0`). `POST /mcp` is the stateless Streamable HTTP endpoint, `GET /healthz` is a health check. Each request carries its own key (`Authorization: Bearer ...` or `X-Api-Key`); `FORM4API_KEY` is not read in this mode. Other settings: `MCP_KEYLESS_PER_MINUTE` (default 30, per-IP limit for requests without a key), `MCP_PER_IP_PER_MINUTE` (default 300, per-IP limit for all requests), `MCP_CACHE_TTL_SECONDS` (default 300, cache for the four public tools) and `TRUST_PROXY=1` (take the client IP from the first `X-Forwarded-For` hop; set it only behind your own proxy). Bodies are capped at 1 MB and requests time out after 60 seconds. It sets no CORS headers and logs one line per request with no keys, headers or bodies.
+It listens on `PORT` (default 3000) and `HOST` (default `0.0.0.0`). `POST /mcp` is the stateless Streamable HTTP endpoint, `GET /healthz` is a health check. Each request carries its own key (`Authorization: Bearer ...` or `X-Api-Key`); `FORM4API_KEY` is not read in this mode. Requests with a key are not limited by this server; the API limits each key per user. Requests without a key are limited per client IP and by one shared budget. Over a limit the server answers HTTP 429 with a `Retry-After` header and a JSON-RPC error. Other settings: `MCP_KEYLESS_PER_MINUTE` (default 120, per-IP limit for requests without a key), `MCP_KEYLESS_GLOBAL_PER_MINUTE` (default 1200, one budget shared by all keyless requests from every address; 0 turns it off), `MCP_PER_IP_PER_MINUTE` (default 0 = off, an optional per-IP limit on all requests, keyed or not), `MCP_TRUSTED_PROXY_CIDRS` (default empty; comma-separated IPv4/IPv6 CIDRs, for example `203.0.113.0/24,2001:db8::/32`; clients inside these ranges skip the per-IP limits but still count in the global keyless budget; malformed entries are ignored with one warning at startup), `MCP_CACHE_TTL_SECONDS` (default 300, cache for the four public tools) and `TRUST_PROXY=1` (take the client IP from the first `X-Forwarded-For` hop; set it only behind your own proxy). Bodies are capped at 1 MB and requests time out after 60 seconds. It sets no CORS headers and logs one line per request with no keys, headers or bodies.
 
 With Docker:
 
@@ -211,7 +211,7 @@ docker run -i -e FORM4API_KEY=YOUR_API_KEY form4api-mcp   # stdio mode (default)
 
 ---
 
-## Available tools (39)
+## Available tools (40)
 
 ### Search
 
@@ -233,9 +233,10 @@ docker run -i -e FORM4API_KEY=YOUR_API_KEY form4api-mcp   # stdio mode (default)
 | `get_company_overview` | Company profile — name, CIK, SIC sector, state, website, filing counts | Free |
 | `get_company_insiders` | All insiders who have filed Form 4s for a company | Free |
 | `get_company_peers` | Similar companies in the same SIC industry (4-digit first, topped up from the 2-digit prefix), ranked by Form 4 filings in the last 12 months | Free |
+| `get_company_returns_summary` | Median price returns (1m/3m/6m) after insider open-market buys and discretionary sells at one company, next to a site-wide baseline and the S&P 500 comparison | Pro |
 | `list_companies` | List companies, sorted by name or filing count | Free |
 | `get_insider_directory` | Browse insiders alphabetically by surname — an A-Z rail with a count per letter, plus one page of insiders under the requested letter | Free |
-| `get_insider_career_summary` | Aggregate career rollup: total bought/sold, top companies, 10b5-1 split, return averages | Pro |
+| `get_insider_career_summary` | Aggregate career rollup: total bought/sold, top companies, 10b5-1 split, median returns | Pro |
 | `get_insider_scorecard` | Buy track-record scorecard for an insider (CIK) — hit rate and avg/median return on discretionary open-market buys; null when fewer than 5 matured samples | Pro |
 | `get_insider_leaderboard` | Top insiders ranked by `hit_rate` or `avg_return`; filter by `horizon` (3m/6m), `min_trades`, and `limit` | Business |
 
@@ -286,7 +287,7 @@ docker run -i -e FORM4API_KEY=YOUR_API_KEY form4api-mcp   # stdio mode (default)
 
 ## Prompts (6)
 
-Beyond the 39 tools, this MCP ships 6 **prompts** — ready-made research recipes that a client can list (`prompts/list`) and load (`prompts/get`) so you don't have to hand-assemble the right tool sequence yourself. Each one tells the LLM exactly which SEC Form 4 / Form 144 / 13F-HR tools to call, in what order, and how to read plan-gated results.
+Beyond the 40 tools, this MCP ships 6 **prompts** — ready-made research recipes that a client can list (`prompts/list`) and load (`prompts/get`) so you don't have to hand-assemble the right tool sequence yourself. Each one tells the LLM exactly which SEC Form 4 / Form 144 / 13F-HR tools to call, in what order, and how to read plan-gated results.
 
 | Prompt | Args | What it does |
 |---|---|---|
@@ -359,7 +360,7 @@ The MCP wraps the same backend as all of the above — every fact your LLM cites
 
 ## Plans
 
-**25 of the 39 tools work on the free plan, and every tool that is free today stays free.**
+**25 of the 40 tools work on the free plan, and every tool that is free today stays free.**
 New premium capability gets tiered as it ships; nothing that already works on your key is
 taken away later.
 
@@ -369,7 +370,7 @@ taken away later.
 | `get_transactions`, `get_recent_filings`, `get_filing` | ✓ | ✓ | ✓ |
 | `get_insider_profile`, `get_insider_transactions` | ✓ | ✓ | ✓ |
 | `get_company_overview`, `get_company_insiders`, `get_company_peers` | ✓ | ✓ | ✓ |
-| `get_insider_career_summary`, `get_insider_scorecard` | — | ✓ | ✓ |
+| `get_insider_career_summary`, `get_insider_scorecard`, `get_company_returns_summary` | — | ✓ | ✓ |
 | `get_insider_leaderboard`, `get_signals`, `get_sentiment` | — | — | ✓ |
 | `get_form144`, `get_holdings`, `get_managers` | — | — | ✓ |
 | `explain_signal`, `list_schedule13_dg` | — | — | ✓ |

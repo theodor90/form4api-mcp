@@ -93,6 +93,10 @@
       "description": "Similar companies in the same industry (SIC code), ranked by recent Form 4 insider filing activity."
     },
     {
+      "name": "get_company_returns_summary",
+      "description": "Median price returns after insider open-market buys and sells at one company, next to a site-wide baseline. Requires Pro plan."
+    },
+    {
       "name": "get_signals",
       "description": "Cluster buy/sell signals — multiple insiders at the same company in the same direction, 10b5-1 excluded. Requires Business plan."
     },
@@ -114,7 +118,7 @@
     },
     {
       "name": "get_insider_career_summary",
-      "description": "Aggregate career rollup for an insider: total bought/sold, top companies, 10b5-1 split, return averages. Requires Pro plan."
+      "description": "Aggregate career rollup for an insider: total bought/sold, top companies, 10b5-1 split, median returns. Requires Pro plan."
     },
     {
       "name": "check_usage",

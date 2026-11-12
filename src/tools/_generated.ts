@@ -44,7 +44,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetCompanyPeers',
     method: 'GET',
     path: '/v1/companies/{ticker}/peers',
-    description: "Peer companies in the same SIC industry, ranked by recent Form 4 activity. Returns other tracked companies in the same industry as the given ticker, for \"similar companies\" links. Candidates share the company's 4-digit SIC code (matchLevel \"sic4\"); when too few of those have Form 4 filings in the last 12 months to fill `limit`, companies sharing only the 2-digit SIC prefix (matchLevel \"sic2\") are added. Active peers (at least one Form 4 filing dated in the trailing 12 months, `filings12m`) come first, sic4 before sic2, each tier ordered by `filings12m` descending then ticker ascending; peers with no filings in the window are appended last only if there is still room. The company itself is excluded, as are companies without a ticker or without a usable SIC code. `basis` is \"sic4\", \"sic2\" or \"mixed\" according to the match levels present in `peers`, and \"none\" when `peers` is empty (including when the company has no SIC code, which is 200 with an empty list, not 404). `limit` defaults to 10 and is clamped to 1-25. Returns 404 NOT_FOUND if the ticker isn't tracked. Not plan-gated. Results are cached for a few hours.",
+    description: "Peer companies in the same SIC industry, ranked by recent Form 4 activity. Returns other tracked companies in the same industry as the given ticker, for \"similar companies\" links. Candidates share the company's 4-digit SIC code (matchLevel \"sic4\"); when too few of those have Form 4 filings in the last 12 months to fill `limit`, companies sharing only the 2-digit SIC prefix (matchLevel \"sic2\") are added. Active peers (at least one Form 4 filing dated in the trailing 12 months, `filings12m`) come first, sic4 before sic2, each tier ordered by `filings12m` descending then ticker ascending; peers with no filings in the window are appended last only if there is still room. The company itself is excluded, as are companies without a ticker or without a usable SIC code, and any other company holding the same ticker. When several companies hold the ticker, the one GET /v1/companies/{ticker} returns is used. `basis` is \"sic4\", \"sic2\" or \"mixed\" according to the match levels present in `peers`, and \"none\" when `peers` is empty (including when the company has no SIC code, which is 200 with an empty list, not 404). `limit` defaults to 10 and is clamped to 1-25. Returns 404 NOT_FOUND if the ticker isn't tracked. Not plan-gated. Results are cached for a few hours.",
     schema: {
   ticker: z.string().describe(`Company ticker symbol, case-insensitive (e.g. "AAPL").`),
   limit: z.number().int().optional().describe(`Maximum number of peers to return. Defaults to 10, clamped to 1-25.`),
@@ -52,6 +52,17 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     handler: async (client, input) => client.get<unknown>(`/v1/companies/${encodeURIComponent(String(input.ticker))}/peers`, {
         limit: input.limit as never,
       }),
+  },
+  {
+    name: 'get_company_returns_summary',
+    operationId: 'GetCompanyReturnsSummary',
+    method: 'GET',
+    path: '/v1/companies/{ticker}/returns-summary',
+    description: "What happened after insiders traded at a company (Pro plan+). Summarises price returns after insider open-market trades at one company, for buys and for discretionary sells, next to a site-wide baseline computed the same way. The unit is an event: one per company per filing date and side. An event's return at a horizon (1m, 3m, 6m = 21, 63, 126 trading days) is the average of that event's rows, measured from the filing-date close. Included: open-market purchases (P) and sales (S) that are not superseded, not derivative and carry no value-quality flag, filed since 2023-05-22; sells exclude 10b5-1 plan sales. An event counts toward a horizon only once that horizon has matured. `nEvents` is the number of events with a 3m return; `n1m` and `n6m` are the counts for the other horizons. Medians are null when that horizon has fewer than 10 events; `mean3m` and `hitRate3m` (share of events with a positive 3m return) are null when `nEvents` is below 10. `events` lists the individual events, newest first, only when `nEvents` is between 3 and 9, otherwise it is empty. `suppressed` is true when the median filing-date close across the company's buy and sell events is below $1, and `lowPrice` is true when that median is from $1 up to below $5; the price itself is not returned. Market comparison: each event's stock return is compared with the S&P 500 (SPY) return over the same window, from the stock's filing-date close bar to the stock's own bar at the horizon, matched by exact date; the event's excess return is the stock return minus the SPY return, computed only when both exist (events without an SPY return are left out, never filled in). `nExcess1m`, `nExcess3m` and `nExcess6m` count the events with an excess return per horizon; `excessMedian1m`, `excessMedian3m` and `excessMedian6m` are null when that count is below 10; `excessMean3m` and `beatMarket3m` (share of events whose 3m stock return exceeded SPY's) are null when `nExcess3m` is below 10. Each item in `events` carries `excess3m`. Not adjusted for company size or sector. The `baseline` block (nEvents, median3m, mean3m, hitRate3m, plus excessMedian3m, excessMean3m and beatMarket3m for buys and sells) is site-wide. All return fields are FRACTIONS, 0.05 means +5%. Requires Pro plan or higher (402 PLAN_REQUIRED on Free). Returns 404 NOT_FOUND if the ticker isn't tracked; when several companies hold the ticker, the one GET /v1/companies/{ticker} returns is used. Cached for 24 hours per ticker, and the baseline is cached for 24 hours, so `asOf` can lag the latest filings by up to a day or two.",
+    schema: {
+  ticker: z.string().describe(`Company ticker symbol, case-insensitive (e.g. "AAPL").`),
+    },
+    handler: async (client, input) => client.get<unknown>(`/v1/companies/${encodeURIComponent(String(input.ticker))}/returns-summary`),
   },
   {
     name: 'get_congress_politician',
@@ -171,7 +182,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetKeyActivity',
     method: 'GET',
     path: '/v1/keys/usage/activity',
-    description: "Recent, per-request API activity log for the authenticated key. Returns the most recent HTTP requests made with the authenticated API key, most recent first, including the endpoint path, response status code, duration in milliseconds, and timestamp. Use this to debug integration issues — confirm a specific call reached the API, check for repeated 4xx/5xx responses, or spot slow requests — rather than for usage trends; for aggregate daily counts use GET /v1/keys/usage/history instead. Requires a valid X-Api-Key (401 without one).",
+    description: "Recent, per-request API activity log for the authenticated key. Returns the most recent HTTP requests made with the authenticated API key, most recent first, including the endpoint path, response status code, duration in milliseconds, and timestamp. Use this to debug integration issues — confirm a specific call reached the API, check for repeated 4xx/5xx responses, or spot slow requests — rather than for usage trends; for aggregate daily counts use GET /v1/keys/usage/history instead. Requires a valid X-Api-Key (401 without one). Limited to 30 requests per minute per API key, shared with the other /v1/keys/usage routes (429 KEY_USAGE_RATE_LIMIT).",
     schema: {
   limit: z.number().int().optional().describe(`Number of most-recent requests to return. Defaults to 100, maximum 200.`),
     },
@@ -206,7 +217,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'GetUsageHistory',
     method: 'GET',
     path: '/v1/keys/usage/history',
-    description: "Daily request counts for the authenticated key over a trailing window. Returns a daily time series of request counts for the authenticated API key over the trailing N days — one data point per calendar day (UTC). Use this to plot usage trends or check rate-limit headroom over time. For a single current-day snapshot (today's count, plan limit, reset time) use GET /v1/keys/usage instead; for a raw request-by-request log use GET /v1/keys/usage/activity. Requires a valid X-Api-Key (401 without one).",
+    description: "Daily request counts for the authenticated key over a trailing window. Returns a daily time series of request counts for the authenticated API key over the trailing N days — one data point per calendar day (UTC). Use this to plot usage trends or check rate-limit headroom over time. For a single current-day snapshot (today's count, plan limit, reset time) use GET /v1/keys/usage instead; for a raw request-by-request log use GET /v1/keys/usage/activity. Requires a valid X-Api-Key (401 without one). Limited to 30 requests per minute per API key, shared with the other /v1/keys/usage routes (429 KEY_USAGE_RATE_LIMIT).",
     schema: {
   days: z.number().int().optional().describe(`Number of trailing days to include, ending today (UTC). Defaults to 30, maximum 90.`),
     },
@@ -232,7 +243,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     operationId: 'HealthIngestion',
     method: 'GET',
     path: '/health/ingestion',
-    description: "Ingestion-death detector — Form 4 freshness, parse-queue health, price-feed freshness. Returns live (uncached) ingestion health: Form 4 processing freshness (stale after 90 minutes during the weekday 06:00-22:00 US Eastern EDGAR activity window, 14 hours outside it), parse-queue health (stale when >50 jobs are pending AND the oldest has waited >45 minutes), and daily price-feed freshness (degraded, never stale, when price bars are >5 days behind). Overall status is \"healthy\", \"degraded\" (price feed only), or \"stale\" (Form 4 or queue). Returns HTTP 503 when stale, 200 otherwise — safe to point an external uptime monitor at directly. No API key or plan required.",
+    description: "Ingestion-death detector — Form 4 freshness, parse-queue health, price-feed freshness. Returns live (uncached) ingestion health: Form 4 processing freshness (stale after 90 minutes during the weekday 06:00-22:00 US Eastern EDGAR activity window, counted from the later of the last filing and the 06:00 opening; outside it, 14 hours or the time since the window last closed plus 90 minutes, whichever is longer, so a normal weekend never reads as stale), parse-queue health (stale when >50 jobs are pending AND the oldest has waited >45 minutes), and daily price-feed freshness (degraded, never stale, when price bars are >5 days behind). Overall status is \"healthy\", \"degraded\" (price feed only), or \"stale\" (Form 4 or queue). Returns HTTP 503 when stale, 200 otherwise — safe to point an external uptime monitor at directly. No API key or plan required.",
     schema: {
 
     },
@@ -316,7 +327,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
     path: '/v1/filings',
     description: "List Form 4 filings with optional ticker, CIK and date filters. Returns a paginated list of Form 4 filings, newest filed first. Filter by ticker, cik, and a from/to filed-date window. Each entry carries the accession number, company ticker/name, period of report, filed date, acceptedAt (the precise UTC SEC-acceptance instant, null if not captured), documentUrl (the public SEC document URL), amendment type (Original/Amendment), and the count of non-superseded transactions in that filing. Use this for a company's filing HISTORY; use GET /v1/filings/recent for a live newest-first feed (it has no page parameter), and GET /v1/transactions when you want the individual trades rather than the filings that contain them. `limit` is accepted as an alias for `per_page`. Not plan-gated.",
     schema: {
-  ticker: z.string().optional().describe(`Company ticker symbol, case-insensitive (e.g. "AAPL").`),
+  ticker: z.string().optional().describe(`Company ticker symbol, case-insensitive (e.g. "AAPL"). Also returns filings made under a successor CIK of the same business (e.g. after a re-registration or redomicile); an unrelated company that reuses the ticker is not included.`),
   cik: z.string().optional().describe(`Company CIK (SEC identifier), e.g. "0000320193". Leading zeros optional.`),
   from: z.string().optional().describe(`Inclusive start of the filed-date window, format YYYY-MM-DD.`),
   to: z.string().optional().describe(`Inclusive end of the filed-date window, format YYYY-MM-DD.`),

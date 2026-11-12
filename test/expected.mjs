@@ -12,6 +12,7 @@ export const EXPECTED_TOOLS = [
   'get_company_overview',
   'get_company_insiders',
   'get_company_peers',
+  'get_company_returns_summary',
   'get_signals',
   // Tier A additions (PLAN_MCP_DEFENSE Phase 1, 2026-06-01)
   'get_form144',

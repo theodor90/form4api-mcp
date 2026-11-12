@@ -1,12 +1,13 @@
 /**
  * Hosted HTTP mode test. Starts the real HTTP server on a local port, pointed
  * at a local STUB of the Form4API (the live API is never called), and checks:
- *  - initialize + tools/list over POST /mcp (39 tools)
+ *  - initialize + tools/list over POST /mcp (40 tools)
  *  - keyless tool works with no key; keyed tool without a key gets HTTP-mode guidance
  *  - the Bearer / X-Api-Key key reaches the API as X-Api-Key; query-string keys are ignored
  *  - the server's own FORM4API_KEY env var is never used in HTTP mode
  *  - concurrent requests with different keys never cross
- *  - keyless per-IP limiter (429) that does not apply to keyed requests
+ *  - no initialize handshake needed; keyed requests have no per-IP limit by default
+ *  - keyless per-IP limiter and global keyless budget (429 + Retry-After), trusted CIDR ranges
  *  - GET/DELETE /mcp 405, /healthz, 1 MB body limit (413)
  *  - `node dist/index.js --http` starts, and its log never contains a key
  *
@@ -96,7 +97,7 @@ try {
   assert(init.body?.result?.serverInfo?.version === PKG_VERSION, `serverInfo.version is ${PKG_VERSION}`)
   const list = await rpc(url, 'tools/list', {})
   const names = (list.body?.result?.tools ?? []).map((t) => t.name)
-  assert(names.length === 39, `39 tools returned (got ${names.length})`)
+  assert(names.length === 40, `40 tools returned (got ${names.length})`)
   assert(EXPECTED_TOOLS.every((n) => names.includes(n)), 'every expected tool is present')
   const prompts = await rpc(url, 'prompts/list', {})
   assert((prompts.body?.result?.prompts ?? []).length === 6, '6 prompts returned')
@@ -196,6 +197,20 @@ console.log('\n[9b] flood guard applies to keyed requests too')
   }
 }
 
+console.log('\n[9a] no initialize handshake needed (stateless)')
+{
+  // A fresh server that has never seen an initialize request.
+  const { server, url: nurl } = await startApp()
+  try {
+    const l = await rpc(nurl, 'tools/list', {})
+    assert(l.status === 200 && !l.body?.error && (l.body?.result?.tools ?? []).length === EXPECTED_TOOLS.length, `tools/list without initialize succeeds (${l.status}, ${(l.body?.result?.tools ?? []).length} tools)`)
+    const c = await call(nurl, 'get_public_stats')
+    assert(c.status === 200 && !c.body?.error && !c.body?.result?.isError && toolText(c).includes('123'), 'keyless tools/call without initialize succeeds')
+  } finally {
+    server.close()
+  }
+}
+
 console.log('\n[9c] public tool cache')
 {
   const { server, url: curl } = await startApp()
@@ -272,6 +287,106 @@ console.log('\n[10] keyless limiter')
   trust.server.close()
 }
 
+console.log('\n[10b] limit defaults and env parsing')
+{
+  const d = httpOptionsFromEnv({})
+  assert(d.keylessPerMinute === 120 && d.keylessGlobalPerMinute === 1200 && d.perIpPerMinute === 0, `defaults: keyless 120/min per IP, 1200/min global, per-IP flood off (${d.keylessPerMinute}, ${d.keylessGlobalPerMinute}, ${d.perIpPerMinute})`)
+  assert(d.trustedProxyCidrs.length === 0 && d.invalidTrustedCidrs.length === 0, 'no trusted proxy ranges by default')
+  const e = httpOptionsFromEnv({ MCP_KEYLESS_PER_MINUTE: '7', MCP_KEYLESS_GLOBAL_PER_MINUTE: '0', MCP_PER_IP_PER_MINUTE: '50' })
+  assert(e.keylessPerMinute === 7 && e.keylessGlobalPerMinute === 0 && e.perIpPerMinute === 50, 'env overrides parse; 0 turns the global budget off')
+  const { parseCidrList } = require('../dist/http.js')
+  const p = parseCidrList(' 10.0.0.0/8, bogus, 1.2.3.4/33, ::1/129, 2001:db8::/32 ,1.2.3.4, 10.0.0.0/x, ,1.2.3.4/8/8')
+  assert(JSON.stringify(p.valid) === JSON.stringify(['10.0.0.0/8', '2001:db8::/32', '1.2.3.4']), `valid CIDRs kept (${p.valid.join(' ')})`)
+  assert(p.invalid.length === 5, `malformed entries set aside, no throw (${p.invalid.length})`)
+}
+
+console.log('\n[10c] keyed requests have no per-IP limit by default')
+{
+  const { server, url: kurl } = await startApp()
+  try {
+    const codes = []
+    for (let batch = 0; batch < 9; batch++) {
+      const rs = await Promise.all(Array.from({ length: 40 }, () => rpc(kurl, 'tools/list', {}, { headers: { Authorization: 'Bearer some_key' } })))
+      codes.push(...rs.map((r) => r.status))
+    }
+    assert(codes.length === 360 && codes.every((c) => c === 200), `360 keyed requests from one IP all succeed (${codes.filter((c) => c !== 200).length} rejected)`)
+    const origin = await rpc(kurl, 'tools/list', {}, { headers: { Origin: 'https://evil.example' } })
+    assert(origin.status === 200, 'no Origin validation: a foreign Origin header is accepted')
+  } finally {
+    server.close()
+  }
+}
+
+console.log('\n[10d] global keyless budget')
+{
+  // trustProxy so each request can come from a different "client", as it does behind a hosted client.
+  const { server, url: gurl } = await startApp({ keylessPerMinute: 100, keylessGlobalPerMinute: 4, trustProxy: true })
+  try {
+    const xff = (n) => ({ headers: { 'X-Forwarded-For': `198.51.100.${n}` } })
+    const codes = []
+    for (let i = 1; i <= 6; i++) codes.push((await rpc(gurl, 'tools/list', {}, xff(i))).status)
+    assert(JSON.stringify(codes) === JSON.stringify([200, 200, 200, 200, 429, 429]), `different IPs share one keyless budget: 4 allowed then 429 (${codes.join(',')})`)
+    const res = await fetch(`${gurl}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'X-Forwarded-For': '198.51.100.99' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) })
+    const body = await res.json()
+    assert(res.status === 429 && Number(res.headers.get('retry-after')) >= 1, `429 carries Retry-After (${res.headers.get('retry-after')})`)
+    assert(body?.jsonrpc === '2.0' && body.error?.code === -32029 && /shared keyless/.test(body.error.message) && body.error.message.includes('Authorization: Bearer'), 'global 429 body is a clear JSON-RPC error pointing at a key')
+    const keyed = await rpc(gurl, 'tools/list', {}, { headers: { Authorization: 'Bearer some_key', 'X-Forwarded-For': '198.51.100.1' } })
+    assert(keyed.status === 200, 'keyed requests are outside the global keyless budget')
+  } finally {
+    server.close()
+  }
+  const { server: s2, url: u2 } = await startApp({ keylessGlobalPerMinute: 0, keylessPerMinute: 100 })
+  try {
+    const codes = []
+    for (let i = 0; i < 20; i++) codes.push((await rpc(u2, 'tools/list', {})).status)
+    assert(codes.every((c) => c === 200), 'MCP_KEYLESS_GLOBAL_PER_MINUTE=0 turns the global budget off')
+  } finally {
+    s2.close()
+  }
+}
+
+console.log('\n[10e] per-IP keyless 429 has Retry-After')
+{
+  const { server, url: ru } = await startApp({ keylessPerMinute: 1 })
+  try {
+    await rpc(ru, 'tools/list', {})
+    const res = await fetch(`${ru}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) })
+    const body = await res.json()
+    assert(res.status === 429 && Number(res.headers.get('retry-after')) >= 1 && body.error?.code === -32029, `per-IP keyless 429 with Retry-After (${res.headers.get('retry-after')})`)
+  } finally {
+    server.close()
+  }
+}
+
+console.log('\n[10f] trusted proxy ranges')
+{
+  // IPv4 range: exempt from the per-IP keyless limit, but still in the global budget.
+  const t4 = await startApp({ keylessPerMinute: 1, keylessGlobalPerMinute: 6, trustProxy: true, trustedProxyCidrs: ['203.0.113.0/24', '2001:db8::/32'] })
+  try {
+    const go = async (ip) => (await rpc(t4.url, 'tools/list', {}, { headers: { 'X-Forwarded-For': ip } })).status
+    const trusted = [await go('203.0.113.7'), await go('203.0.113.8'), await go('203.0.113.9')]
+    assert(trusted.every((c) => c === 200), `IPv4 trusted range skips the per-IP keyless limit (${trusted.join(',')})`)
+    const v6 = [await go('2001:db8::1'), await go('2001:db8:0:1::5')]
+    assert(v6.every((c) => c === 200), `IPv6 trusted range skips the per-IP keyless limit (${v6.join(',')})`)
+    const other = [await go('198.51.100.1'), await go('198.51.100.1')]
+    assert(other[0] === 200 && other[1] === 429, `an address outside the range is still limited per IP (${other.join(',')})`)
+    // Counted globally so far: 3 + 2 + 1 allowed non-trusted request = 6 (the per-IP 429 above did not consume any).
+    const fromTrusted = await go('203.0.113.10')
+    assert(fromTrusted === 429, `trusted clients still count against the global keyless budget (${fromTrusted})`)
+  } finally {
+    t4.server.close()
+  }
+  // Malformed entries are ignored; the app still works and the valid entry applies.
+  const bad = await startApp({ keylessPerMinute: 1, trustedProxyCidrs: ['127.0.0.0/8'], invalidTrustedCidrs: ['nope'] })
+  try {
+    const codes = []
+    for (let i = 0; i < 3; i++) codes.push((await rpc(bad.url, 'tools/list', {})).status)
+    assert(codes.every((c) => c === 200), `loopback in a trusted range is exempt from the per-IP keyless limit (${codes.join(',')})`)
+  } finally {
+    bad.server.close()
+  }
+}
+
 console.log('\n[11] `node dist/index.js --http` (spawned) logs no secrets')
 {
   const free = await new Promise((resolve) => {
@@ -295,6 +410,30 @@ console.log('\n[11] `node dist/index.js --http` (spawned) logs no secrets')
     await new Promise((r2) => setTimeout(r2, 100))
     assert(/POST \/mcp 200 \d+ms keyed=yes/.test(log), 'one access line per request (method path status ms keyed)')
     assert(!log.includes('SENTINEL_SECRET_KEY_9') && !log.includes('SENTINEL_QS_9') && !log.includes('ENV_KEY_MUST_NOT_LEAK'), 'log contains no key, query string or env key')
+  } finally {
+    child.kill()
+  }
+}
+
+console.log('\n[11b] malformed MCP_TRUSTED_PROXY_CIDRS: one warning line, no crash')
+{
+  const free = await new Promise((resolve) => {
+    const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)) })
+  })
+  const child = spawn('node', [path.resolve(here, '../dist/index.js'), '--http'], {
+    env: { ...process.env, PORT: String(free), HOST: '127.0.0.1', FORM4API_BASE_URL: stubUrl, MCP_TRUSTED_PROXY_CIDRS: '10.0.0.0/8, bogus, 1.2.3.4/99' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let log = ''
+  child.stderr.on('data', (d) => { log += d })
+  try {
+    let up = false
+    for (let i = 0; i < 50 && !up; i++) {
+      try { up = (await fetch(`http://127.0.0.1:${free}/healthz`)).status === 200 } catch { await new Promise((r) => setTimeout(r, 100)) }
+    }
+    assert(up, 'server starts despite malformed CIDR entries')
+    const warnings = log.split('\n').filter((l) => l.includes('MCP_TRUSTED_PROXY_CIDRS'))
+    assert(warnings.length === 1 && warnings[0].includes('bogus') && warnings[0].includes('1.2.3.4/99') && !warnings[0].includes('10.0.0.0/8'), `exactly one warning line naming only the bad entries (${warnings.length})`)
   } finally {
     child.kill()
   }

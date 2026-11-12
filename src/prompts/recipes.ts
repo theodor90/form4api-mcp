@@ -50,7 +50,7 @@ const insiderMonitor: RecipePrompt = {
 1. Call \`research_company\` with ticker="${ticker}" first — it bundles company profile, recent transactions, cluster signals, and sentiment in one call (Business-plan sections degrade gracefully if unavailable; note which ones did).
 2. Call \`get_transactions\` with ticker="${ticker}", exclude_10b5=true, per_page=50 to get the clean discretionary-only transaction list (drops pre-scheduled 10b5-1 disposals that aren't a real signal).
 3. If cluster signals or sentiment came back unavailable in step 1 (Business plan required), call \`get_signals\` (ticker="${ticker}") and \`get_sentiment\` (ticker="${ticker}") directly and report the 402 upgrade path if they fail.
-4. For the 1-2 insiders with the largest discretionary buys or sells, call \`get_insider_career_summary\` (Pro plan) with their CIK to pull post-trade-return averages — this is what tells you whether this insider's past buys/sells actually predicted anything.
+4. For the 1-2 insiders with the largest discretionary buys or sells, call \`get_insider_career_summary\` (Pro plan) with their CIK to pull median post-trade returns — this is what tells you whether this insider's past buys/sells actually predicted anything.
 
 Present a terse, quant-flavored summary:
 - Buy vs. sell count and total $ value, discretionary-only (10b5-1 excluded)
@@ -134,7 +134,7 @@ ${looksLikeCik
   ? `1. "${insider}" looks like a CIK already — use it directly.`
   : `1. "${insider}" looks like a name, not a CIK. Call \`search_insiders\` with name="${insider}" to resolve it to a CIK. If more than one match comes back, pick the most likely one (or ask which company they're associated with) before continuing.`}
 2. Call \`get_insider_profile\` with the CIK — confirm name, titles, director/officer/10%-owner flags.
-3. Call \`get_insider_career_summary\` with the CIK (Pro plan) — pull first/last transaction dates, total bought/sold/net, top companies traded, the 10b5-1 plan split, and post-trade-return averages.
+3. Call \`get_insider_career_summary\` with the CIK (Pro plan) — pull first/last transaction dates, total bought/sold/net, top companies traded, the 10b5-1 plan split, and median post-trade returns.
 4. Call \`get_insider_scorecard\` with the CIK (Pro plan) — pull the hit rate and average/median return specifically on discretionary open-market buys (TransactionCode=P, no 10b5-1, no derivatives), at both the 3-month and 6-month horizon. Check \`sampleSufficient\` — if false (fewer than 5 matured scored buys), say so plainly instead of reporting a misleading number.
 5. Optionally call \`get_insider_transactions\` with the CIK for the underlying transaction-level detail if the summary numbers need drilling into.
 
