@@ -24,7 +24,8 @@ import { fileURLToPath } from 'node:url'
 const require = createRequire(import.meta.url)
 const here = path.dirname(fileURLToPath(import.meta.url))
 const { createHttpApp, httpOptionsFromEnv } = require('../dist/http.js')
-const { EXPECTED_TOOLS } = await import('./expected.mjs')
+const { EXPECTED_TOOLS, EXPECTED_DEFAULT_TOOLS } = await import('./expected.mjs')
+const { DEFAULT_TOOLS } = require('../dist/toolsets.js')
 const PKG_VERSION = JSON.parse(readFileSync(path.resolve(here, '../package.json'), 'utf8')).version
 
 let passed = 0
@@ -82,7 +83,13 @@ async function rpc(base, method, params, { headers = {}, query = '' } = {}) {
   try { body = JSON.parse(text) } catch { /* not json */ }
   return { status: res.status, body, text }
 }
-const call = (base, name, args = {}, opts) => rpc(base, 'tools/call', { name, arguments: args }, opts)
+const callRaw = (base, name, args = {}, opts) => rpc(base, 'tools/call', { name, arguments: args }, opts)
+// HTTP serves the 15-tool default set unless a request says `?toolsets=all`. Most
+// sections below exercise tools outside that set (check_usage, get_public_stats),
+// so `call` opts in to everything on purpose. Tests of the default surface use
+// rpc() / callRaw() directly.
+const withAll = (opts = {}) => ({ ...opts, query: `${opts.query ? `${opts.query}&` : '?'}toolsets=all` })
+const call = (base, name, args = {}, opts) => callRaw(base, name, args, withAll(opts))
 const toolText = (r) => r.body?.result?.content?.[0]?.text ?? ''
 
 const { server: app, url } = await startApp()
@@ -95,18 +102,89 @@ try {
   assert(init.status === 200, `initialize returns 200 (got ${init.status})`)
   assert(init.body?.result?.serverInfo?.name === 'form4api', 'serverInfo.name is form4api')
   assert(init.body?.result?.serverInfo?.version === PKG_VERSION, `serverInfo.version is ${PKG_VERSION}`)
-  const list = await rpc(url, 'tools/list', {})
+  const list = await rpc(url, 'tools/list', {}, { query: '?toolsets=all' })
   const names = (list.body?.result?.tools ?? []).map((t) => t.name)
-  assert(names.length === 40, `40 tools returned (got ${names.length})`)
-  assert(EXPECTED_TOOLS.every((n) => names.includes(n)), 'every expected tool is present')
+  assert(names.length === 40, `?toolsets=all returns 40 tools (got ${names.length})`)
+  assert(EXPECTED_TOOLS.every((n) => names.includes(n)), 'every expected tool is present with ?toolsets=all')
   const httpTools = list.body?.result?.tools ?? []
   assert(httpTools.every((t) => typeof t.title === 'string' && t.title.trim().length > 0), 'every tool has a non-empty title over HTTP')
   assert(new Set(httpTools.map((t) => t.title)).size === httpTools.length, 'tool titles are unique over HTTP')
   assert(httpTools.every((t) => t.annotations?.readOnlyHint === true), 'every tool has readOnlyHint over HTTP')
-  const list2 = await rpc(url, 'tools/list', {})
+  const list2 = await rpc(url, 'tools/list', {}, { query: '?toolsets=all' })
   assert(JSON.stringify((list2.body?.result?.tools ?? []).map((t) => t.name)) === JSON.stringify(names), 'tools/list order is stable across requests over HTTP')
   const prompts = await rpc(url, 'prompts/list', {})
   assert((prompts.body?.result?.prompts ?? []).length === 6, '6 prompts returned')
+
+  console.log('\n[1b] toolsets: HTTP default is the curated 15')
+  const dlist = await rpc(url, 'tools/list', {})
+  const dnames = (dlist.body?.result?.tools ?? []).map((t) => t.name)
+  assert(dnames.length === 15, `default HTTP tools/list returns exactly 15 tools (got ${dnames.length})`)
+  assert(JSON.stringify([...dnames].sort()) === JSON.stringify([...EXPECTED_DEFAULT_TOOLS].sort()), 'the 15 are exactly the curated default set')
+  assert(dnames.every((n) => names.includes(n)), 'every default tool is also in the full set')
+  const dorder = names.filter((n) => dnames.includes(n))
+  assert(JSON.stringify(dnames) === JSON.stringify(dorder), 'default list keeps the same relative order as the full list')
+  assert(JSON.stringify((await rpc(url, 'tools/list', {})).body?.result?.tools?.map((t) => t.name)) === JSON.stringify(dnames), 'default order is stable across requests')
+  assert(((await rpc(url, 'prompts/list', {}, { query: '?toolsets=default' })).body?.result?.prompts ?? []).length === 6, 'prompts are unaffected by the toolset (6)')
+  const explicit = await rpc(url, 'tools/list', {}, { query: '?toolsets=default' })
+  assert((explicit.body?.result?.tools ?? []).length === 15, '?toolsets=default is accepted and returns 15')
+  for (const v of ['ALL', '%20all%20', 'All']) {
+    const r = await rpc(url, 'tools/list', {}, { query: `?toolsets=${v}` })
+    assert(r.status === 200 && (r.body?.result?.tools ?? []).length === 40, `?toolsets=${v} is case-insensitive and trimmed: 40 tools`)
+  }
+  const withOther = await rpc(url, 'tools/list', {}, { query: '?foo=bar&toolsets=all' })
+  assert((withOther.body?.result?.tools ?? []).length === 40, '?toolsets works next to other parameters')
+  assert(dnames.every((n) => EXPECTED_TOOLS.includes(n)), 'every name in the default set exists in EXPECTED_TOOLS')
+  assert(JSON.stringify(DEFAULT_TOOLS) === JSON.stringify(EXPECTED_DEFAULT_TOOLS), 'src DEFAULT_TOOLS matches test/expected.mjs')
+  const dinit = await rpc(url, 'initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'http-test', version: '1.0.0' } })
+  assert(!/get_public_stats/.test(dinit.body?.result?.instructions ?? ''), 'default-set instructions do not point at a tool that is not there')
+  const ainit = await rpc(url, 'initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'http-test', version: '1.0.0' } }, { query: '?toolsets=all' })
+  assert(/get_public_stats/.test(ainit.body?.result?.instructions ?? ''), 'full-set instructions still mention get_public_stats')
+
+  console.log('\n[1c] toolsets: unknown value is HTTP 400')
+  for (const v of ['bogus', '', 'default,all', 'none']) {
+    const r = await rpc(url, 'tools/list', {}, { query: `?toolsets=${v}` })
+    assert(r.status === 400, `?toolsets=${v || '(empty)'} returns 400 (got ${r.status})`)
+    assert(r.body?.jsonrpc === '2.0' && r.body?.error?.message?.includes('"default" or "all"'), 'body is a JSON-RPC error naming the accepted values')
+  }
+  const dup = await rpc(url, 'tools/list', {}, { query: '?toolsets=all&toolsets=default' })
+  assert(dup.status === 400, 'a repeated parameter with conflicting values is a 400')
+  const dupSame = await rpc(url, 'tools/list', {}, { query: '?toolsets=all&toolsets=ALL' })
+  assert(dupSame.status === 200 && (dupSame.body?.result?.tools ?? []).length === 40, 'a repeated parameter with the same value is fine')
+  const echo = await rpc(url, 'tools/list', {}, { query: '?toolsets=SECRETISH_VALUE_77' })
+  assert(echo.status === 400 && !echo.text.includes('SECRETISH_VALUE_77'), 'the 400 body does not echo the bad value')
+  const { resolveRequestToolset } = require('../dist/http.js')
+  assert(
+    resolveRequestToolset('/mcp', 'default') === 'default' && resolveRequestToolset('/mcp?toolsets=all', 'default') === 'all' &&
+      resolveRequestToolset('/mcp', 'all') === 'all' && resolveRequestToolset('/mcp?toolsets=x', 'all') === null,
+    'resolveRequestToolset: absent -> server default, value -> value, unknown -> null',
+  )
+
+  console.log('\n[1d] toolsets: a tool outside the active set')
+  upstream.length = 0
+  const blocked = await callRaw(url, 'get_public_stats')
+  assert(blocked.status === 200 && blocked.body?.result?.isError === true, 'get_public_stats under the default set is a clean tool error')
+  assert(toolText(blocked).includes('?toolsets=all') && toolText(blocked).includes('get_public_stats'), 'the error names the tool and says how to enable it (?toolsets=all)')
+  assert(toolText(blocked).includes('15') && toolText(blocked).includes('40'), 'the error says 15 default tools and 40 in the full set')
+  assert(!blocked.body?.error && blocked.body?.id !== undefined, 'the reply is a normal result carrying the request id')
+  assert(upstream.length === 0, 'the handler never ran: nothing reached the upstream API')
+  const unknown = await callRaw(url, 'no_such_tool_at_all')
+  assert(unknown.body?.result?.isError === true || !!unknown.body?.error, 'a tool that exists nowhere still fails')
+  assert(!toolText(unknown).includes('?toolsets=all'), 'a truly unknown tool does not get the enable hint')
+  const allowed = await callRaw(url, 'get_recent_filings', {}, { headers: { Authorization: 'Bearer k_default' } })
+  assert(upstream.length === 1, 'a default-set tool reaches the handler under the default set')
+  assert(!toolText(allowed).includes('?toolsets=all'), 'a default-set tool gets no enable hint')
+  upstream.length = 0
+  {
+    // Own app instance: its cache is separate, so [2] below still sees an uncached first call.
+    const fresh = await startApp()
+    try {
+      const opened = await callRaw(fresh.url, 'get_public_stats', {}, { query: '?toolsets=all' })
+      assert(!opened.body?.result?.isError && toolText(opened).includes('123'), 'the same call with ?toolsets=all reaches the handler and returns data')
+      assert(upstream.filter((u) => u.path === '/v1/stats').length === 1, 'upstream saw the call under ?toolsets=all')
+    } finally {
+      fresh.server.close()
+    }
+  }
 
   console.log('\n[2] keyless tool works with no key')
   upstream.length = 0
@@ -209,7 +287,7 @@ console.log('\n[9a] no initialize handshake needed (stateless)')
   const { server, url: nurl } = await startApp()
   try {
     const l = await rpc(nurl, 'tools/list', {})
-    assert(l.status === 200 && !l.body?.error && (l.body?.result?.tools ?? []).length === EXPECTED_TOOLS.length, `tools/list without initialize succeeds (${l.status}, ${(l.body?.result?.tools ?? []).length} tools)`)
+    assert(l.status === 200 && !l.body?.error && (l.body?.result?.tools ?? []).length === EXPECTED_DEFAULT_TOOLS.length, `tools/list without initialize succeeds (${l.status}, ${(l.body?.result?.tools ?? []).length} default tools)`)
     const c = await call(nurl, 'get_public_stats')
     assert(c.status === 200 && !c.body?.error && !c.body?.result?.isError && toolText(c).includes('123'), 'keyless tools/call without initialize succeeds')
   } finally {
@@ -234,6 +312,15 @@ console.log('\n[9c] public tool cache')
     await call(curl, 'check_usage', {}, { headers: { Authorization: 'Bearer private_key_A' } })
     const keys = upstream.filter((u) => u.path === '/v1/keys/usage').map((u) => u.key)
     assert(JSON.stringify(keys) === JSON.stringify(['private_key_A', 'private_key_B', 'private_key_A']), `keyed private tool is never cached (${keys.join(',')})`)
+
+    // The cache is shared across requests but keyed by tool call, so a result cached
+    // under ?toolsets=all must not be served to a connection on the default set.
+    upstream.length = 0
+    await callRaw(curl, 'get_public_stats', {}, { query: '?toolsets=all' })
+    const viaAll = await callRaw(curl, 'get_public_stats', {}, { query: '?toolsets=all' })
+    const viaDefault = await callRaw(curl, 'get_public_stats')
+    assert(toolText(viaAll).includes('123') && upstream.filter((u) => u.path === '/v1/stats').length === 0, 'under ?toolsets=all the public result is still served from the cache (no new upstream hit)')
+    assert(viaDefault.body?.result?.isError === true && !toolText(viaDefault).includes('123'), 'a cached tool outside the default set is not served on the default set')
   } finally {
     server.close()
   }
@@ -416,6 +503,7 @@ console.log('\n[11] `node dist/index.js --http` (spawned) logs no secrets')
     await new Promise((r2) => setTimeout(r2, 100))
     assert(/POST \/mcp 200 \d+ms keyed=yes/.test(log), 'one access line per request (method path status ms keyed)')
     assert(!log.includes('SENTINEL_SECRET_KEY_9') && !log.includes('SENTINEL_QS_9') && !log.includes('ENV_KEY_MUST_NOT_LEAK'), 'log contains no key, query string or env key')
+    assert(/POST \/mcp 200 \d+ms keyed=yes toolset=all\n/.test(log) && !log.includes('toolsets'), 'the log line names the toolset (toolset=all) without the query string')
   } finally {
     child.kill()
   }
@@ -442,6 +530,70 @@ console.log('\n[11b] malformed MCP_TRUSTED_PROXY_CIDRS: one warning line, no cra
     assert(warnings.length === 1 && warnings[0].includes('bogus') && warnings[0].includes('1.2.3.4/99') && !warnings[0].includes('10.0.0.0/8'), `exactly one warning line naming only the bad entries (${warnings.length})`)
   } finally {
     child.kill()
+  }
+}
+
+console.log('\n[11c] MCP_DEFAULT_TOOLSETS')
+{
+  const d = httpOptionsFromEnv({})
+  assert(d.defaultToolset === 'default' && d.invalidDefaultToolset === null, 'HTTP default toolset is "default" when the env var is unset')
+  const a = httpOptionsFromEnv({ MCP_DEFAULT_TOOLSETS: ' ALL ' })
+  assert(a.defaultToolset === 'all' && a.invalidDefaultToolset === null, 'MCP_DEFAULT_TOOLSETS is case-insensitive and trimmed')
+  const b = httpOptionsFromEnv({ MCP_DEFAULT_TOOLSETS: 'everything' })
+  assert(b.defaultToolset === 'default' && b.invalidDefaultToolset === 'everything', 'an unknown value falls back to "default" and is flagged for a warning')
+
+  const { server, url: aurl } = await startApp({ defaultToolset: 'all' })
+  try {
+    const all = await rpc(aurl, 'tools/list', {})
+    assert((all.body?.result?.tools ?? []).length === 40, 'with MCP_DEFAULT_TOOLSETS=all a plain request gets 40 tools')
+    const narrowed = await rpc(aurl, 'tools/list', {}, { query: '?toolsets=default' })
+    assert((narrowed.body?.result?.tools ?? []).length === 15, '...and a request can still narrow itself with ?toolsets=default')
+    const bad = await rpc(aurl, 'tools/list', {}, { query: '?toolsets=nope' })
+    assert(bad.status === 400, 'an unknown ?toolsets value is still a 400 when the server default is "all"')
+  } finally {
+    server.close()
+  }
+
+  async function spawnHttp(extraEnv) {
+    const free = await new Promise((resolve) => {
+      const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)) })
+    })
+    const child = spawn('node', [path.resolve(here, '../dist/index.js'), '--http'], {
+      env: { ...process.env, PORT: String(free), HOST: '127.0.0.1', FORM4API_BASE_URL: stubUrl, ...extraEnv },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const out = { log: '' }
+    child.stderr.on('data', (x) => { out.log += x })
+    let up = false
+    for (let i = 0; i < 50 && !up; i++) {
+      try { up = (await fetch(`http://127.0.0.1:${free}/healthz`)).status === 200 } catch { await new Promise((r) => setTimeout(r, 100)) }
+    }
+    return { base: `http://127.0.0.1:${free}`, child, out, up }
+  }
+
+  const s1 = await spawnHttp({ MCP_DEFAULT_TOOLSETS: 'ALL' })
+  try {
+    const l = await rpc(s1.base, 'tools/list', {})
+    assert(s1.up && (l.body?.result?.tools ?? []).length === 40, 'spawned with MCP_DEFAULT_TOOLSETS=ALL: plain request lists 40 tools')
+    await new Promise((r) => setTimeout(r, 100))
+    assert(/POST \/mcp 200 \d+ms keyed=no toolset=all\n/.test(s1.out.log), 'log line says toolset=all')
+    assert(!s1.out.log.includes('MCP_DEFAULT_TOOLSETS'), 'no warning for a valid value')
+  } finally {
+    s1.child.kill()
+  }
+
+  const s2 = await spawnHttp({ MCP_DEFAULT_TOOLSETS: 'bogus-value' })
+  try {
+    const l = await rpc(s2.base, 'tools/list', {})
+    assert(s2.up && (l.body?.result?.tools ?? []).length === 15, 'spawned with an unknown MCP_DEFAULT_TOOLSETS: starts and falls back to the 15 default tools')
+    const bad = await rpc(s2.base, 'tools/list', {}, { query: '?toolsets=zzz' })
+    await new Promise((r) => setTimeout(r, 100))
+    const warnings = s2.out.log.split('\n').filter((x) => x.includes('MCP_DEFAULT_TOOLSETS'))
+    assert(warnings.length === 1 && warnings[0].includes('bogus-value') && warnings[0].includes('"default" or "all"'), 'exactly one startup warning line naming the accepted values')
+    assert(/POST \/mcp 200 \d+ms keyed=no toolset=default\n/.test(s2.out.log), 'log line says toolset=default')
+    assert(bad.status === 400 && /POST \/mcp 400 \d+ms keyed=no toolset=invalid\n/.test(s2.out.log) && !s2.out.log.includes('zzz'), 'a rejected request logs toolset=invalid, never the value')
+  } finally {
+    s2.child.kill()
   }
 }
 

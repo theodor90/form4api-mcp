@@ -17,18 +17,23 @@ import { researchCompanySchema, researchCompany } from './tools/research.js'
 import { searchSchema, search } from './tools/search.js'
 import { GENERATED_TOOLS } from './tools/_generated.js'
 import { RECIPE_PROMPTS } from './prompts/recipes.js'
+import { assertDefaultToolsRegistered, inToolset, type Toolset } from './toolsets.js'
 import type { TtlCache } from './cache.js'
 import type { ZodRawShape } from 'zod'
 
-const SERVER_INSTRUCTIONS = `Form4API insider trading data: amendment-aware Form 4 transactions, 10b5-1 plan flags, Form 144 intent-to-sell, institutional 13F-HR overlay, and congressional STOCK Act trades — including the insider-cluster-buy x congressional-purchase convergence signal.
+// get_public_stats is outside the default toolset, so the instructions only point
+// at it when it is registered.
+function serverInstructions(toolset: Toolset): string {
+  const all = toolset === 'all'
+  return `Form4API insider trading data: amendment-aware Form 4 transactions, 10b5-1 plan flags, Form 144 intent-to-sell, institutional 13F-HR overlay, and congressional STOCK Act trades — including the insider-cluster-buy x congressional-purchase convergence signal.
 
-Only have a company name, ticker fragment, or a person's name? Call \`search\` first to resolve it to a ticker or CIK. Start with \`research_company\` to get bundled insider context for any ticker. If something fails, run \`verify_setup\` first. Try \`get_public_stats\` without a key to preview the data.
+Only have a company name, ticker fragment, or a person's name? Call \`search\` first to resolve it to a ticker or CIK. Start with \`research_company\` to get bundled insider context for any ticker. If something fails, run \`verify_setup\` first.${all ? ' Try `get_public_stats` without a key to preview the data.' : ''}
 
 Try these prompts:
 • "What insider trades happened at NVDA in the last 30 days, excluding 10b5-1 plans?"
 • "Show me cluster buy signals from this week — multiple insiders at the same company trading in the same direction."
-• "Which politicians traded AAPL, and does that overlap with any insider cluster-buy convergence?"
-• "Call get_public_stats to show me our current data coverage — no API key required."`
+• "Which politicians traded AAPL, and does that overlap with any insider cluster-buy convergence?"${all ? '\n• "Call get_public_stats to show me our current data coverage — no API key required."' : ''}`
+}
 
 function wrapResult(data: unknown): { content: Array<{ type: 'text'; text: string }> } {
   return {
@@ -58,6 +63,18 @@ type ToolResult = { content: Array<{ type: 'text'; text: string }>; isError?: tr
  * as the top-level `title` field (MCP 2025-06-18+) and as `annotations.title`
  * (older clients), so every client that supports either one shows it.
  */
+interface Registration {
+  toolset: Toolset
+  /** Every tool name seen, in the active set or not. */
+  all: string[]
+  /** Names actually registered. */
+  registered: string[]
+}
+
+// Per-server registration state, so the ~40 registerReadOnlyTool call sites
+// below stay unchanged.
+const registrations = new WeakMap<McpServer, Registration>()
+
 function registerReadOnlyTool(
   server: McpServer,
   name: string,
@@ -66,6 +83,14 @@ function registerReadOnlyTool(
   shape: ZodRawShape,
   handler: (input: Record<string, unknown>) => Promise<ToolResult>,
 ): void {
+  const reg = registrations.get(server)
+  if (reg) {
+    reg.all.push(name)
+    // Outside the active toolset: not registered, so it is absent from tools/list
+    // and tools/call fails as an unknown tool.
+    if (!inToolset(reg.toolset, name)) return
+    reg.registered.push(name)
+  }
   server.registerTool(
     name,
     {
@@ -78,22 +103,43 @@ function registerReadOnlyTool(
   )
 }
 
+export interface CreateServerOptions {
+  /** Which tools to register. Defaults to `all`, so direct callers keep every tool. */
+  toolset?: Toolset
+}
+
+export interface BuiltServer {
+  server: McpServer
+  /** Tool names registered under the active toolset. */
+  registered: string[]
+  /** Every tool name in the full set (registered or not). */
+  all: string[]
+}
+
 /**
- * Builds a fully registered MCP server (every tool and prompt) bound to the
- * given client. Stdio mode calls this once; the hosted HTTP mode calls it once
- * per request with a client carrying that caller's key, so no credential is
- * ever shared between requests.
+ * Builds a fully registered MCP server (the tools in the active toolset, plus
+ * every prompt) bound to the given client. Stdio mode calls this once; the
+ * hosted HTTP mode calls it once per request with a client carrying that
+ * caller's key, so no credential is ever shared between requests.
  */
-export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServer {
+export function createServer(client: Form4ApiClient, cache?: TtlCache, options: CreateServerOptions = {}): McpServer {
+  return buildServer(client, cache, options).server
+}
+
+/** Same as createServer, but also reports which tool names were registered and which exist. */
+export function buildServer(client: Form4ApiClient, cache?: TtlCache, options: CreateServerOptions = {}): BuiltServer {
   const server = new McpServer(
     {
       name: 'form4api',
       version: VERSION,
     },
     {
-      instructions: SERVER_INSTRUCTIONS,
+      instructions: serverInstructions(options.toolset ?? 'all'),
     },
   )
+
+  const reg: Registration = { toolset: options.toolset ?? 'all', all: [], registered: [] }
+  registrations.set(server, reg)
 
   registerReadOnlyTool(
     server,
@@ -393,5 +439,8 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     )
   }
 
-  return server
+  // A rename must not silently shrink the default set.
+  assertDefaultToolsRegistered(reg.all)
+
+  return { server, registered: reg.registered, all: reg.all }
 }

@@ -1,7 +1,8 @@
 /**
  * MCP protocol test — spawns the server and verifies:
  *  1. initialize handshake
- *  2. tools/list returns all 40 tools with correct names
+ *  2. tools/list returns all 40 tools with correct names (stdio default stays `all`;
+ *     FORM4API_TOOLSETS=default gives the curated 15, see [7b])
  *  3. prompts/list returns all 6 recipe prompts
  *  4. prompts/get returns rendered messages for a sample of prompts
  *  5. (optional) live tool call if FORM4API_KEY is set
@@ -18,7 +19,45 @@ const serverPath = path.resolve(__dirname, '../dist/index.js')
 // never drifts on a bump.
 const PKG_VERSION = JSON.parse(readFileSync(path.resolve(__dirname, '../package.json'), 'utf8')).version
 
-import { EXPECTED_TOOLS, EXPECTED_PROMPTS } from './expected.mjs'
+import { EXPECTED_TOOLS, EXPECTED_PROMPTS, EXPECTED_DEFAULT_TOOLS } from './expected.mjs'
+
+/**
+ * Spawns the stdio server with extra env, lists its tools and prompts, and
+ * returns the names plus everything it wrote to stderr.
+ */
+async function listStdio(extraEnv) {
+  const env = { ...process.env, FORM4API_KEY: 'fapi_test_key', ...extraEnv }
+  for (const k of Object.keys(extraEnv)) if (extraEnv[k] === undefined) delete env[k]
+  const child = spawn('node', [serverPath], { env, stdio: ['pipe', 'pipe', 'pipe'] })
+  let stderr = ''
+  child.stderr.on('data', (d) => { stderr += d })
+  const rl = createInterface({ input: child.stdout })
+  const waiting = new Map()
+  rl.on('line', (line) => {
+    try {
+      const m = JSON.parse(line)
+      if (waiting.has(m.id)) { waiting.get(m.id)(m); waiting.delete(m.id) }
+    } catch { /* ignore */ }
+  })
+  let id = 1
+  const ask = (method, params) =>
+    new Promise((resolve, reject) => {
+      const myId = id++
+      waiting.set(myId, resolve)
+      child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: myId, method, params }) + '\n')
+      setTimeout(() => reject(new Error(`timeout: ${method}`)), 5000)
+    })
+  try {
+    await ask('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 't', version: '1' } })
+    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n')
+    const tools = (await ask('tools/list', {})).result?.tools ?? []
+    const prompts = (await ask('prompts/list', {})).result?.prompts ?? []
+    const blocked = await ask('tools/call', { name: 'get_public_stats', arguments: {} })
+    return { names: tools.map((t) => t.name), prompts: prompts.map((p) => p.name), stderr, blocked }
+  } finally {
+    child.kill()
+  }
+}
 
 let passed = 0
 let failed = 0
@@ -35,6 +74,7 @@ function assert(condition, label) {
 
 async function runTest() {
   const env = { ...process.env, FORM4API_KEY: process.env.FORM4API_KEY ?? 'fapi_test_key' }
+  delete env.FORM4API_TOOLSETS // the default-mode assertions below must not inherit an opt-in
 
   const server = spawn('node', [serverPath], {
     env,
@@ -191,6 +231,30 @@ async function runTest() {
     console.log('\n[7] prompts/get — unknown prompt name is rejected')
     const unknownPromptRes = await send('prompts/get', { name: 'not_a_real_prompt', arguments: {} })
     assert(!!unknownPromptRes.error, 'prompts/get with an unknown name returns a protocol error')
+
+    // ── Test 7b: toolsets over stdio ─────────────────────────────────────
+    console.log('\n[7b] stdio toolsets — FORM4API_TOOLSETS')
+    assert(toolNames.length === EXPECTED_TOOLS.length, `stdio default (no env) keeps all ${EXPECTED_TOOLS.length} tools`)
+    const same = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort())
+    const defaultRun = await listStdio({ FORM4API_TOOLSETS: 'default' })
+    assert(defaultRun.names.length === 15, `FORM4API_TOOLSETS=default lists exactly 15 tools (got ${defaultRun.names.length})`)
+    assert(same(defaultRun.names, EXPECTED_DEFAULT_TOOLS), 'the 15 are exactly the curated default set')
+    assert(defaultRun.prompts.length === 6, 'prompts are unaffected by the toolset (6)')
+    assert(defaultRun.stderr.trim() === 'Form4API MCP server running on stdio', 'no warning for a valid value')
+    assert(
+      defaultRun.blocked.result?.isError === true || !!defaultRun.blocked.error,
+      'a tool outside the default set (get_public_stats) is not callable',
+    )
+    const loud = await listStdio({ FORM4API_TOOLSETS: '  ALL ' })
+    assert(loud.names.length === EXPECTED_TOOLS.length, 'FORM4API_TOOLSETS is case-insensitive and trimmed ("  ALL ")')
+    const bad = await listStdio({ FORM4API_TOOLSETS: 'everything' })
+    assert(bad.names.length === EXPECTED_TOOLS.length, 'an unknown FORM4API_TOOLSETS value falls back to all tools')
+    const warnLines = bad.stderr.split('\n').filter((l) => l.includes('FORM4API_TOOLSETS'))
+    assert(warnLines.length === 1 && warnLines[0].includes('"default" or "all"'), 'one warning line naming the accepted values')
+    const dist = await import('../dist/toolsets.js')
+    assert(JSON.stringify(dist.DEFAULT_TOOLS) === JSON.stringify(EXPECTED_DEFAULT_TOOLS), 'src DEFAULT_TOOLS matches test/expected.mjs')
+    assert(EXPECTED_DEFAULT_TOOLS.every((n) => EXPECTED_TOOLS.includes(n)), 'every default-set name is a real registered tool')
+    assert(new Set(EXPECTED_DEFAULT_TOOLS).size === 15, 'the default set has 15 distinct names')
 
     // ── Test 8: live tool call (only if real key provided) ───────────────
     if (process.env.FORM4API_KEY && !process.env.FORM4API_KEY.startsWith('fapi_test')) {

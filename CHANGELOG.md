@@ -28,11 +28,20 @@ This ensures clients can always see what tools are available in a given version 
 ## [Unreleased]
 
 ### Added
+- Toolsets: `default` (15 curated tools) and `all` (all 40), defined in `src/toolsets.ts`. A tool outside the active set is not registered, so it is absent from `tools/list` and a call to it fails. Prompts are unaffected.
+- Hosted HTTP mode: `?toolsets=all` (or `?toolsets=default`) on the `/mcp` URL picks the toolset per request. An unknown value is an HTTP 400 with a JSON-RPC error naming the accepted values.
+- Hosted HTTP mode: calling a tool that exists but is outside the active set returns a tool error saying so and how to enable it (`?toolsets=all`). JSON-RPC batch requests keep the SDK's plain unknown-tool error.
+- `FORM4API_TOOLSETS` (stdio) and `MCP_DEFAULT_TOOLSETS` (HTTP) env vars. An unknown value prints one warning on stderr at startup and falls back to that mode's default.
+- `createServer` takes `{ toolset }`; a startup check throws if a name in the default set is not a registered tool, so a rename cannot silently shrink it.
+- The HTTP request log line includes `toolset=<name>` for `/mcp` requests (never the query string).
+- `eval/golden-prompts.json`: an `expected_default` field on each prompt (the first tool when only the 15 default tools exist, or `null`), and `npm run eval:tools -- --toolsets default`.
 - Every tool now has a human-readable `title`, sent both as the top-level field and as `annotations.title`. Generated tools take theirs from a title map in `codegen/generate.mjs`, and codegen fails if an operation has no title or two titles collide.
 - `idempotentHint: true` on every tool; all of them are read-only GETs.
 - `eval/`: 25 golden prompts with the expected first tool call, plus `npm run eval:tools`, which dumps the tool surface as clients see it. Not published to npm.
 
 ### Changed
+- **Hosted HTTP mode now lists 15 tools by default instead of 40.** Use `https://mcp.form4api.com/mcp?toolsets=all` (or `MCP_DEFAULT_TOOLSETS=all` on a self-hosted server) for the full set. Stdio is unchanged: npm installs and the Claude Desktop extension still get all 40 unless `FORM4API_TOOLSETS=default` is set.
+- The server instructions only mention `get_public_stats` when that tool is registered.
 - Tools are sorted by plain code-unit comparison instead of `localeCompare`, so `tools/list` order is the same on every machine. Tests check that titles exist and are unique, that readOnlyHint is set, that names are 64 characters or fewer, and that the order is stable across calls.
 
 ## [1.18.0] — 2026-11-12

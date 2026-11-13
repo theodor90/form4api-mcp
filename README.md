@@ -19,11 +19,12 @@ An [MCP](https://modelcontextprotocol.io) server that exposes the hosted [Form4A
 
 ## Hosted (no install)
 
-Nothing to install or run: point your client at the hosted server and send your API key as a header. Same 40 tools and 6 prompts. Get a free key (500 requests/day, no card) at [www.form4api.com](https://www.form4api.com) → Dashboard.
+Nothing to install or run: point your client at the hosted server and send your API key as a header. The hosted server lists a curated set of 15 tools by default; add `?toolsets=all` to the URL for all 40 (see [Toolsets](#toolsets)). 6 prompts either way. Get a free key (500 requests/day, no card) at [www.form4api.com](https://www.form4api.com) → Dashboard.
 
 - **URL:** `https://mcp.form4api.com/mcp` (Streamable HTTP)
 - **Auth:** `Authorization: Bearer YOUR_API_KEY` (an `X-Api-Key: YOUR_API_KEY` header also works). Keys in the query string are ignored.
-- **No key:** the keyless tools (`get_public_stats`, `get_data_quality`, `get_status_history`, `verify_setup`) still work, limited to 120 requests per minute per IP (and 1200 per minute across all keyless callers). Every other tool asks you to send a key.
+- **Everything:** `https://mcp.form4api.com/mcp?toolsets=all` lists all 40 tools instead of the default 15.
+- **No key:** the keyless tools (`get_public_stats`, `get_data_quality`, `get_status_history`, `verify_setup`) still work (all but `verify_setup` need `?toolsets=all`), limited to 120 requests per minute per IP (and 1200 per minute across all keyless callers). Every other tool asks you to send a key.
 
 **Claude Code:**
 ```sh
@@ -199,7 +200,7 @@ The package can also serve the hosted mode itself (this is what runs at `mcp.for
 npx form4api-mcp --http          # or: MCP_TRANSPORT=http npx form4api-mcp
 ```
 
-It listens on `PORT` (default 3000) and `HOST` (default `0.0.0.0`). `POST /mcp` is the stateless Streamable HTTP endpoint, `GET /healthz` is a health check. Each request carries its own key (`Authorization: Bearer ...` or `X-Api-Key`); `FORM4API_KEY` is not read in this mode. Requests with a key are not limited by this server; the API limits each key per user. Requests without a key are limited per client IP and by one shared budget. Over a limit the server answers HTTP 429 with a `Retry-After` header and a JSON-RPC error. Other settings: `MCP_KEYLESS_PER_MINUTE` (default 120, per-IP limit for requests without a key), `MCP_KEYLESS_GLOBAL_PER_MINUTE` (default 1200, one budget shared by all keyless requests from every address; 0 turns it off), `MCP_PER_IP_PER_MINUTE` (default 0 = off, an optional per-IP limit on all requests, keyed or not), `MCP_TRUSTED_PROXY_CIDRS` (default empty; comma-separated IPv4/IPv6 CIDRs, for example `203.0.113.0/24,2001:db8::/32`; clients inside these ranges skip the per-IP limits but still count in the global keyless budget; malformed entries are ignored with one warning at startup), `MCP_CACHE_TTL_SECONDS` (default 300, cache for the four public tools) and `TRUST_PROXY=1` (take the client IP from the first `X-Forwarded-For` hop; set it only behind your own proxy). Bodies are capped at 1 MB and requests time out after 60 seconds. It sets no CORS headers and logs one line per request with no keys, headers or bodies.
+It listens on `PORT` (default 3000) and `HOST` (default `0.0.0.0`). `POST /mcp` is the stateless Streamable HTTP endpoint, `GET /healthz` is a health check. Each request carries its own key (`Authorization: Bearer ...` or `X-Api-Key`); `FORM4API_KEY` is not read in this mode. Requests with a key are not limited by this server; the API limits each key per user. Requests without a key are limited per client IP and by one shared budget. Over a limit the server answers HTTP 429 with a `Retry-After` header and a JSON-RPC error. Other settings: `MCP_KEYLESS_PER_MINUTE` (default 120, per-IP limit for requests without a key), `MCP_KEYLESS_GLOBAL_PER_MINUTE` (default 1200, one budget shared by all keyless requests from every address; 0 turns it off), `MCP_PER_IP_PER_MINUTE` (default 0 = off, an optional per-IP limit on all requests, keyed or not), `MCP_TRUSTED_PROXY_CIDRS` (default empty; comma-separated IPv4/IPv6 CIDRs, for example `203.0.113.0/24,2001:db8::/32`; clients inside these ranges skip the per-IP limits but still count in the global keyless budget; malformed entries are ignored with one warning at startup), `MCP_DEFAULT_TOOLSETS` (`default` or `all`, default `default`; the toolset for requests that do not pass `?toolsets=`, see [Toolsets](#toolsets)), `MCP_CACHE_TTL_SECONDS` (default 300, cache for the four public tools) and `TRUST_PROXY=1` (take the client IP from the first `X-Forwarded-For` hop; set it only behind your own proxy). Bodies are capped at 1 MB and requests time out after 60 seconds. It sets no CORS headers and logs one line per request with no keys, headers or bodies.
 
 With Docker:
 
@@ -208,6 +209,27 @@ docker build -t form4api-mcp .
 docker run -p 3000:3000 -e MCP_TRANSPORT=http form4api-mcp   # HTTP mode (healthcheck active)
 docker run -i -e FORM4API_KEY=YOUR_API_KEY form4api-mcp   # stdio mode (default)
 ```
+
+---
+
+## Toolsets
+
+The server has two toolsets:
+
+- `default`: 15 tools, enough for most insider-research questions: `search`, `research_company`, `get_transactions`, `get_recent_filings`, `get_filing`, `get_insider_transactions`, `get_insider_scorecard`, `get_signals`, `get_company_overview`, `get_form144`, `get_holdings`, `list_congress_trades`, `get_convergence_signals`, `get_company_insiders` and `verify_setup`.
+- `all`: every tool, 40 as listed below.
+
+A tool outside the active set is not registered: it is missing from `tools/list`, and calling it fails as an unknown tool. Prompts are the same in both.
+
+**npm (stdio):** the default is `all`, so existing installs see no change. To switch to the 15, set `FORM4API_TOOLSETS=default` in the server's `env`:
+
+```json
+"env": { "FORM4API_KEY": "YOUR_API_KEY", "FORM4API_TOOLSETS": "default" }
+```
+
+**Hosted (`mcp.form4api.com`):** the default is the 15. Add `?toolsets=all` to the URL (`https://mcp.form4api.com/mcp?toolsets=all`) to get all 40; `?toolsets=default` is also accepted. If a client calls a tool outside the active set, the error says the tool exists and how to enable it. When you run your own HTTP server, `MCP_DEFAULT_TOOLSETS=all` changes the default for every request.
+
+Values are `default` or `all`, case-insensitive. In the URL, anything else is an HTTP 400 that names the accepted values. In `FORM4API_TOOLSETS` or `MCP_DEFAULT_TOOLSETS`, anything else prints one warning to stderr at startup and the server uses its normal default. The Claude Desktop extension (DXT) is stdio and lists all 40.
 
 ---
 

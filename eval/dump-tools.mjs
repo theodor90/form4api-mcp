@@ -6,6 +6,7 @@
  * No API key is needed (tools/list never calls the API) and no network is used.
  *
  * Run: npm run build && npm run eval:tools
+ *      npm run eval:tools -- --toolsets default    # the curated 15 only
  */
 import { spawn } from 'node:child_process'
 import { createInterface } from 'node:readline'
@@ -15,8 +16,27 @@ import { fileURLToPath } from 'node:url'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const serverPath = path.resolve(here, '../dist/index.js')
 
+// --toolsets default|all (or --toolsets=default): which toolset to list. The stdio
+// server's own default is `all`, so with no flag the dump is the full 40 tools.
+const argv = process.argv.slice(2)
+let toolsets = 'all'
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i]
+  if (a === '--toolsets') toolsets = argv[++i] ?? ''
+  else if (a.startsWith('--toolsets=')) toolsets = a.slice('--toolsets='.length)
+  else {
+    process.stderr.write(`eval:tools: unknown argument ${JSON.stringify(a)}. Usage: eval-tools [--toolsets default|all]\n`)
+    process.exit(1)
+  }
+}
+toolsets = toolsets.trim().toLowerCase()
+if (toolsets !== 'default' && toolsets !== 'all') {
+  process.stderr.write('eval:tools: --toolsets must be "default" or "all"\n')
+  process.exit(1)
+}
+
 // Never forward a real key to the child: listing tools does not need one.
-const env = { ...process.env }
+const env = { ...process.env, FORM4API_TOOLSETS: toolsets }
 delete env.FORM4API_KEY
 
 const child = spawn('node', [serverPath], { env, stdio: ['pipe', 'pipe', 'ignore'] })

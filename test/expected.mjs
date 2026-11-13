@@ -66,6 +66,28 @@ export const EXPECTED_TOOLS = [
   'get_data_quality',
 ]
 
+// The curated default toolset (src/toolsets.ts DEFAULT_TOOLS). Deliberately a second
+// copy: the tests compare it with the one in src, so a rename or an edit on one
+// side only fails loudly. Hosted HTTP serves exactly these by default; stdio
+// serves them with FORM4API_TOOLSETS=default.
+export const EXPECTED_DEFAULT_TOOLS = [
+  'search',
+  'research_company',
+  'get_transactions',
+  'get_recent_filings',
+  'get_filing',
+  'get_insider_transactions',
+  'get_insider_scorecard',
+  'get_signals',
+  'get_company_overview',
+  'get_form144',
+  'get_holdings',
+  'list_congress_trades',
+  'get_convergence_signals',
+  'get_company_insiders',
+  'verify_setup',
+]
+
 // Recipe prompts (v1.9.0, 2026-07-11) — the MCP "prompts" capability.
 export const EXPECTED_PROMPTS = [
   'insider_monitor',
