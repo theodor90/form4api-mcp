@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-const BASE_URL = process.env.FORM4API_BASE_URL ?? 'https://api.form4api.com'
+const DEFAULT_BASE_URL = 'https://api.form4api.com'
 
 // Single source of truth for the version — read from package.json at load so
 // the User-Agent can never drift from the published version. This UA is how the
@@ -11,6 +11,8 @@ const BASE_URL = process.env.FORM4API_BASE_URL ?? 'https://api.form4api.com'
 const { version: PKG_VERSION } = JSON.parse(
   readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
 ) as { version: string }
+
+export const VERSION: string = PKG_VERSION
 
 export type RequiredPlan = 'starter' | 'pro' | 'business' | 'enterprise' | 'higher'
 
@@ -61,6 +63,22 @@ export class Form4ApiError extends Error {
   }
 }
 
+// Hosted (--http) mode: the key arrives per request in a header, there is no
+// env var to point at.
+const NO_KEY_MESSAGE_REMOTE =
+  'No Form4API key was sent with this request.\n' +
+  'Get a free key — 500 requests/day, no credit card — at:\n' +
+  '  https://www.form4api.com/dashboard\n' +
+  'Then add this header to your MCP client config:  Authorization: Bearer <your key>\n' +
+  '(X-Api-Key: <your key> also works.) Keyless tools such as get_public_stats still work without one.'
+
+export interface Form4ApiClientOptions {
+  /** Overrides FORM4API_BASE_URL / the production API. */
+  baseUrl?: string
+  /** Hosted HTTP mode: adapts the User-Agent and the key guidance in errors. */
+  remote?: boolean
+}
+
 const NO_KEY_MESSAGE =
   'No Form4API key found (FORM4API_KEY is not set).\n' +
   'Get a free key — 500 requests/day, no credit card — at:\n' +
@@ -72,12 +90,30 @@ export class Form4ApiClient {
   // Key is resolved lazily so the server starts (and keyless tools like
   // get_public_stats / get_data_quality work) without FORM4API_KEY.
   // Authenticated tools surface NO_KEY_MESSAGE on first use instead.
+  //
+  // `apiKey`: a string uses that key, `null` is explicitly keyless, and
+  // `undefined` (no argument) falls back to FORM4API_KEY. The env fallback
+  // exists for the stdio entry and older callers only. The hosted HTTP mode
+  // always passes string | null, so it never reads the environment.
   private readonly apiKey: string | null
   private readonly baseUrl: string
+  private readonly remote: boolean
 
-  constructor() {
-    this.apiKey = process.env.FORM4API_KEY ?? null
-    this.baseUrl = BASE_URL
+  constructor(apiKey?: string | null, opts: Form4ApiClientOptions = {}) {
+    const key = apiKey === undefined ? (process.env.FORM4API_KEY ?? null) : apiKey
+    this.apiKey = key && key.trim() !== '' ? key.trim() : null
+    this.baseUrl = opts.baseUrl ?? process.env.FORM4API_BASE_URL ?? DEFAULT_BASE_URL
+    this.remote = opts.remote ?? false
+  }
+
+  /** The User-Agent the backend uses for channel attribution. It still contains `form4api-mcp/<version>`. */
+  get userAgent(): string {
+    return this.remote ? `form4api-mcp/${PKG_VERSION} (remote)` : `form4api-mcp/${PKG_VERSION}`
+  }
+
+  /** What verify_setup needs to probe the backend with exactly this client's identity. */
+  diagnosticContext(): { apiKey: string | null; baseUrl: string; userAgent: string; remote: boolean } {
+    return { apiKey: this.apiKey, baseUrl: this.baseUrl, userAgent: this.userAgent, remote: this.remote }
   }
 
   async get<T>(path: string, params?: Record<string, string | number | boolean | undefined>): Promise<T> {
@@ -92,7 +128,7 @@ export class Form4ApiClient {
     }
 
     const headers: Record<string, string> = {
-      'User-Agent': `form4api-mcp/${PKG_VERSION}`,
+      'User-Agent': this.userAgent,
     }
     if (this.apiKey) headers['X-Api-Key'] = this.apiKey
 
@@ -165,7 +201,9 @@ export class Form4ApiClient {
       // rotated, rather than the generic "invalid key" text below.
       if (res.status === 401 && code === 'API_KEY_REVOKED') {
         throw new Form4ApiError(
-          `${message} Update FORM4API_KEY in your MCP client config.`,
+          this.remote
+            ? `${message} Update the Authorization header in your MCP client config.`
+            : `${message} Update FORM4API_KEY in your MCP client config.`,
           401,
           'API_KEY_REVOKED',
         )
@@ -174,9 +212,13 @@ export class Form4ApiClient {
       if (res.status === 401) {
         throw new Form4ApiError(
           this.apiKey
-            ? 'Invalid API key. Check FORM4API_KEY in your MCP client config, or get a ' +
+            ? 'Invalid API key. Check ' +
+              (this.remote ? 'the Authorization header' : 'FORM4API_KEY') +
+              ' in your MCP client config, or get a ' +
               'free key (500 requests/day, no card) at https://www.form4api.com/dashboard'
-            : NO_KEY_MESSAGE,
+            : this.remote
+              ? NO_KEY_MESSAGE_REMOTE
+              : NO_KEY_MESSAGE,
           401,
           'UNAUTHORIZED',
         )

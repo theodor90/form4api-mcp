@@ -43,6 +43,11 @@ const SKIP_OPERATIONS = new Set([
   // keep it out of the MCP surface. (Leaked in via the OpenAPI spec when the
   // testimonial feature shipped, 2026-06-28.)
   'GetFeaturedTestimonials',
+  // Watchlists are not released as a product yet; keep them out of the MCP
+  // surface and revisit when they are.
+  'ListWatchlists',
+  'GetWatchlist',
+  'GetWatchlistActivity',
 ])
 
 // Operations that have a hand-written tool wrapper in src/tools/*.ts. The
