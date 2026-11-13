@@ -101,6 +101,28 @@ async function runTest() {
       assert(toolNames.includes(name), `tool "${name}" present`)
     }
 
+    // ── Test 2b: directory metadata on every tool ────────────────────────
+    console.log('\n[2b] tools/list — titles, readOnlyHint, name length, stable order')
+    const listedTools = listRes.result?.tools ?? []
+    const titles = listedTools.map(t => t.title)
+    assert(listedTools.every(t => typeof t.title === 'string' && t.title.trim().length > 0), 'every tool has a non-empty title')
+    assert(new Set(titles).size === titles.length, 'tool titles are unique')
+    assert(
+      listedTools.every(t => t.annotations?.title === t.title),
+      'annotations.title matches the top-level title on every tool',
+    )
+    assert(listedTools.every(t => t.annotations?.readOnlyHint === true), 'every tool has annotations.readOnlyHint === true')
+    assert(listedTools.every(t => t.name.length <= 64), 'every tool name is 64 characters or fewer')
+    assert(
+      listedTools.every(t => !/\.$/.test(t.title) && /^[A-Z0-9]/.test(t.title)),
+      'titles have no trailing period and start with a capital or digit',
+    )
+    const listAgain = await send('tools/list', {})
+    assert(
+      JSON.stringify((listAgain.result?.tools ?? []).map(t => t.name)) === JSON.stringify(toolNames),
+      'a second tools/list returns the same order',
+    )
+
     // ── Test 3: tool schema spot-check ───────────────────────────────────
     console.log('\n[3] Tool schema spot-check')
     const txTool = listRes.result?.tools?.find(t => t.name === 'get_transactions')

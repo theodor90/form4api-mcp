@@ -17,6 +17,7 @@ import type { Form4ApiClient } from '../client.js'
 export interface GeneratedTool {
   name: string
   operationId: string
+  title: string
   method: string
   path: string
   description: string
@@ -28,6 +29,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'explain_signal',
     operationId: 'ExplainSignal',
+    title: "Explain a signal",
     method: 'GET',
     path: '/v1/signals/{ticker}/explain',
     description: "Explain why a signal fired: the insiders and trades counted, what was excluded, and the criteria (Business plan+). Use this when the question is WHY a named company's signal fired, or WHICH insiders and trades made up its cluster. It takes the ticker directly, so there is no need to call GET /v1/signals first; that endpoint is for finding which companies have signals. Reconstructs the full evidence behind one company's insider signal from GET /v1/signals: the detection criteria (5-day cluster window, 3-insider threshold, 90-day ratio window, 10b5-1 and derivative-row exclusion), the list of cluster buyers and sellers (each with their role and individual trades in the window), trades that were excluded from the cluster count and why (10b5-1 plan, derivative security, or superseded by amendment), and the raw buy/sell share totals behind the 90-day ratio. Use this to audit or debug a specific signal rather than to scan many companies (use GET /v1/signals for that). This is a LIVE reconstruction from current non-superseded data, computed on every request (no caching) — it can differ slightly from the originally stored signal if trades were amended afterward. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). Returns 404 COMPANY_NOT_FOUND if the ticker isn't tracked, 404 SIGNAL_NOT_FOUND if no signal exists for the given/most-recent date, or 400 INVALID_DATE if `date` isn't YYYY-MM-DD.",
@@ -42,6 +44,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_company_peers',
     operationId: 'GetCompanyPeers',
+    title: "Peer companies",
     method: 'GET',
     path: '/v1/companies/{ticker}/peers',
     description: "Peer companies in the same SIC industry, ranked by recent Form 4 activity. Returns other tracked companies in the same industry as the given ticker, for \"similar companies\" links. Candidates share the company's 4-digit SIC code (matchLevel \"sic4\"); when too few of those have Form 4 filings in the last 12 months to fill `limit`, companies sharing only the 2-digit SIC prefix (matchLevel \"sic2\") are added. Active peers (at least one Form 4 filing dated in the trailing 12 months, `filings12m`) come first, sic4 before sic2, each tier ordered by `filings12m` descending then ticker ascending; peers with no filings in the window are appended last only if there is still room. The company itself is excluded, as are companies without a ticker or without a usable SIC code, and any other company holding the same ticker. When several companies hold the ticker, the one GET /v1/companies/{ticker} returns is used. `basis` is \"sic4\", \"sic2\" or \"mixed\" according to the match levels present in `peers`, and \"none\" when `peers` is empty (including when the company has no SIC code, which is 200 with an empty list, not 404). `limit` defaults to 10 and is clamped to 1-25. Returns 404 NOT_FOUND if the ticker isn't tracked. Not plan-gated. Results are cached for a few hours.",
@@ -56,6 +59,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_company_returns_summary',
     operationId: 'GetCompanyReturnsSummary',
+    title: "Returns after company trades",
     method: 'GET',
     path: '/v1/companies/{ticker}/returns-summary',
     description: "What happened after insiders traded at a company (Pro plan+). Summarises price returns after insider open-market trades at one company, for buys and for discretionary sells, next to a site-wide baseline computed the same way. The unit is an event: one per company per filing date and side. An event's return at a horizon (1m, 3m, 6m = 21, 63, 126 trading days) is the average of that event's rows, measured from the filing-date close. Included: open-market purchases (P) and sales (S) that are not superseded, not derivative and carry no value-quality flag, filed since 2023-05-22; sells exclude 10b5-1 plan sales. An event counts toward a horizon only once that horizon has matured. `nEvents` is the number of events with a 3m return; `n1m` and `n6m` are the counts for the other horizons. Medians are null when that horizon has fewer than 10 events; `mean3m` and `hitRate3m` (share of events with a positive 3m return) are null when `nEvents` is below 10. `events` lists the individual events, newest first, only when `nEvents` is between 3 and 9, otherwise it is empty. `suppressed` is true when the median filing-date close across the company's buy and sell events is below $1, and `lowPrice` is true when that median is from $1 up to below $5; the price itself is not returned. Market comparison: each event's stock return is compared with the S&P 500 (SPY) return over the same window, from the stock's filing-date close bar to the stock's own bar at the horizon, matched by exact date; the event's excess return is the stock return minus the SPY return, computed only when both exist (events without an SPY return are left out, never filled in). `nExcess1m`, `nExcess3m` and `nExcess6m` count the events with an excess return per horizon; `excessMedian1m`, `excessMedian3m` and `excessMedian6m` are null when that count is below 10; `excessMean3m` and `beatMarket3m` (share of events whose 3m stock return exceeded SPY's) are null when `nExcess3m` is below 10. Each item in `events` carries `excess3m`. Not adjusted for company size or sector. The `baseline` block (nEvents, median3m, mean3m, hitRate3m, plus excessMedian3m, excessMean3m and beatMarket3m for buys and sells) is site-wide. All return fields are FRACTIONS, 0.05 means +5%. Requires Pro plan or higher (402 PLAN_REQUIRED on Free). Returns 404 NOT_FOUND if the ticker isn't tracked; when several companies hold the ticker, the one GET /v1/companies/{ticker} returns is used. Cached for 24 hours per ticker, and the baseline is cached for 24 hours, so `asOf` can lag the latest filings by up to a day or two.",
@@ -67,6 +71,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_congress_politician',
     operationId: 'GetCongressPolitician',
+    title: "Congress member profile",
     method: 'GET',
     path: '/v1/congress/politicians/{idOrSlug}',
     description: "Get one politician's congressional trading profile (Pro plan+). Returns one politician's profile — identity fields, total/buy/sell trade counts, most recent trade's disclosure date, their top N most-traded tickers (by trade count), and their N most recent trades (same shape as GET /v1/congress/trades). Use this for a one-call politician overview rather than paging /v1/congress/trades?politician= yourself. Accepts either a bioguide ID (e.g. \"P000197\") or the politician's URL slug (e.g. \"nancy-pelosi\") in the path, matched case-insensitively against whichever field applies. Returns 404 NOT_FOUND if neither matches. Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). Query runs live — no caching.",
@@ -83,6 +88,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_congress_ticker_rollup',
     operationId: 'GetCongressTickerRollup',
+    title: "Congress trades by ticker",
     method: 'GET',
     path: '/v1/congress/tickers/{ticker}',
     description: "Which politicians traded a ticker, with net buy/sell counts (Pro plan+). Returns every politician who has a non-superseded congressional trade in the given ticker, each with their trade/buy/sell counts, plus ticker-level totals. Optional window_days restricts to trades with a transactionDate in the trailing N days; omit for all-time. A ticker with no congress trades returns 200 with an empty politicians array and zero counts rather than 404 — there is no separate ticker/company entity in this dataset to 404 against. Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). Query runs live — no caching.",
@@ -97,6 +103,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_convergence_signals',
     operationId: 'GetConvergenceSignals',
+    title: "Insider and Congress convergence",
     method: 'GET',
     path: '/v1/signals/convergence',
     description: "Insider cluster-buy x congressional-purchase convergence (Pro plan+). Returns the tickers where an insider cluster-buy (InsiderSignal.IsClusterBuy) and at least one non-superseded congressional PURCHASE happened within window_days of EACH OTHER, restricted to convergences where the MORE RECENT of the pair's two dates is within a trailing lookback_days (so this surfaces CURRENT convergences, not ancient history). DEFINITION: for each result, insider.signalDate is the SignalDate of the qualifying cluster-buy signal with the most recent date (insider.insiderCount is that same signal's count — never summed or maxed across multiple signals), and congress is every non-superseded congressional purchase that paired with at least one qualifying cluster-buy (not every purchase in the window — only the ones that actually paired). firstSeen/lastSeen are the earliest/most recent dates among all qualifying insider and congress dates for that ticker. STRENGTH is documented arithmetic, NOT a black-box or predictive/ML score: strength = (distinct congressional purchasers among the qualifying legs) x (the representative signal's insiderCount) — a plain multiplication of two observed counts, nothing more. HONESTY: every congress leg always carries both amountLow and amountHigh (STOCK Act discloses ranges, never exact figures — never combined into a fabricated midpoint) and disclosureLagDays = (disclosureDate - transactionDate). Congressional trades whose dates are impossible or implausible (a dateQuality flag: transaction_after_disclosure, future_transaction_date or implausible_lag) are excluded from detection, so they never appear as legs and never create a convergence; dateQuality is therefore null on every leg returned here and disclosureLagDays is always set. Congressional trades are disclosed up to 45 days after the actual trade under the STOCK Act, so this endpoint is detection/monitoring of what insiders AND members of Congress have DISCLOSED buying, not a claim of predictive edge, alpha, or win rate — no performance numbers are computed or implied anywhere in this response. window_days and lookback_days are both caller-overridable with clamps (see each parameter's own description for the exact bounds). Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.",
@@ -120,6 +127,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_data_quality',
     operationId: 'GetDataQuality',
+    title: "Data quality metrics",
     method: 'GET',
     path: '/v1/data-quality',
     description: "Public data-quality, freshness and coverage metrics for the whole dataset. Returns public, keyless metrics on data freshness, ingestion latency, corpus coverage, and post-trade returns coverage — use this to check whether the dataset is current before relying on it (e.g. confirm Form 4 ingestion isn't stalled, or that price data isn't stale), not to look up any single company, insider, or transaction. Includes: most recent Form 4 processed timestamp and median/p95 filing-accepted-to-processed latency in seconds, latest price-bar date and how many days behind it is, total companies/transactions tracked plus filing counts by form type (4, 144, 13F-HR), the percentage of 13F CUSIPs resolved to a ticker, and the percentage of eligible transactions with fully computed post-trade returns. Takes no parameters. Cached for 30 minutes; no API key or plan required.",
@@ -131,6 +139,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_insider_directory',
     operationId: 'GetInsiderDirectory',
+    title: "Insider A-Z directory",
     method: 'GET',
     path: '/v1/insiders/directory',
     description: "Browse insiders alphabetically by surname. Returns the A-Z rail with a count per letter, plus one page of insiders under the\nrequested letter. Omit `letter` to get the rail and totals with no rows.\n\nNames come from EDGAR surname-first (\"HENNEMAN JOHN B III\"), so alphabetical order\nis order by surname. Casing in the source is inconsistent and is not normalised here.\n\nThis lists only insiders with at least 3 non-superseded transactions, capped at the\n5,000 most active — the same set as the insiders sitemap shard, so the two cannot\ndrift. To find someone outside that set, use GET /v1/insiders?name= which searches\nevery filer. Rebuilt daily; `refreshedAt` reports when. `limit` is accepted as an alias for\n`per_page`. Not plan-gated.\n\nOne row per FILER GROUP. A fund group files a single Form 4 listing several\nreporting owners — the fund, its GP, its management company — and each is a real\nEDGAR filer with its own CIK. Listing all of them spent about 11% of this capped\nsurface describing the same actors more than once, so browse shows one per group\nand `filerGroupSize` says how many others share those exact transactions. The\nothers are not hidden: each keeps its own profile and is still returned by\nGET /v1/insiders?name=.",
@@ -150,6 +159,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_insider_leaderboard',
     operationId: 'GetInsiderLeaderboard',
+    title: "Insider leaderboard",
     method: 'GET',
     path: '/v1/insiders/leaderboard',
     description: "Ranked leaderboard of insiders by buy track-record (Business plan+). Returns the top insiders ranked by historical buy performance — same scored-buy methodology as\nGET /v1/insiders/{cik}/scorecard, applied across the whole corpus rather than one insider. Use\nthis to discover which insiders have the best track record; use the per-insider scorecard once\nyou have a specific CIK. Scores use absolute return (NOT market-adjusted) — a hit is a scored\nbuy with a positive 3m (or 6m) return anchored at the filing-date close. Only discretionary\nopen-market buys (P-code, not 10b5-1, not derivative) with a matured return are counted.\nInsiders with fewer than min_trades (floor 5) scored buys are excluded. Requires Business plan\nor higher (402 PLAN_REQUIRED on Free/Starter/Pro). Results are cached for 1 hour per unique\nparameter combination.",
@@ -169,6 +179,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_insider_scorecard',
     operationId: 'GetInsiderScorecard',
+    title: "Insider buy scorecard",
     method: 'GET',
     path: '/v1/insiders/{cik}/scorecard',
     description: "Get insider buy track-record scorecard (Pro plan+). Returns the historical hit rate and average/median return of an insider's discretionary\nopen-market buys (TransactionCode=P, excluding 10b5-1 plans and derivatives), plus their best\nand worst scored buy. Scores use absolute return (NOT market-adjusted) anchored at the\nfiling-date close. A 'hit' is a scored buy whose 3m (or 6m) return is positive. Use this over\nGET /v1/insiders/{cik}/summary when you specifically want a scored track record (with a\nsample-sufficiency guard) rather than raw totals; use GET /v1/insiders/leaderboard (Business+)\nto rank many insiders by this same methodology. Score fields (hitRate3m, avgReturn3m, etc.) are\nnull when the insider has fewer than 5 matured scored buys (sampleSufficient=false), preventing\nmisleading statistics from small samples. Requires Pro plan or higher (402 PLAN_REQUIRED on\nFree/Starter). Returns 404 NOT_FOUND if the CIK isn't tracked. Computed live — no caching.\nNote: all return fields (HitRate3m, AvgReturn3m, MedianReturn3m, etc.) are stored\nas FRACTIONS — 0.05 means +5%, -0.10 means -10%.",
@@ -180,6 +191,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_key_activity',
     operationId: 'GetKeyActivity',
+    title: "API key activity log",
     method: 'GET',
     path: '/v1/keys/usage/activity',
     description: "Recent, per-request API activity log for the authenticated key. Returns the most recent HTTP requests made with the authenticated API key, most recent first, including the endpoint path, response status code, duration in milliseconds, and timestamp. Use this to debug integration issues — confirm a specific call reached the API, check for repeated 4xx/5xx responses, or spot slow requests — rather than for usage trends; for aggregate daily counts use GET /v1/keys/usage/history instead. Requires a valid X-Api-Key (401 without one). Limited to 30 requests per minute per API key, shared with the other /v1/keys/usage routes (429 KEY_USAGE_RATE_LIMIT).",
@@ -193,6 +205,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_public_stats',
     operationId: 'GetPublicStats',
+    title: "Public dataset statistics",
     method: 'GET',
     path: '/v1/stats',
     description: "Public corpus-wide statistics — no API key required. Returns headline dataset totals: filing count, transaction count, tracked companies, institutional holdings rows, Form 144 and Form 13F-HR filing counts, the earliest filing date in the corpus, the most recent quarter's total 13F-HR reported AUM in USD, and measured ingestion latency (median/p95 seconds from SEC acceptance to our processing, trailing 7 days). Use this for corpus-wide totals (e.g. a marketing/status widget), not for per-company or per-insider data — those live under GET /v1/companies and GET /v1/insiders. For freshness and coverage-quality metrics (is ingestion stalled, is price data stale) use GET /v1/data-quality instead. Takes no parameters. No API key or plan required. Cached for ~12 hours.",
@@ -204,6 +217,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_status_history',
     operationId: 'GetStatusHistory',
+    title: "Service uptime history",
     method: 'GET',
     path: '/v1/status/history',
     description: "Measured uptime history for the public status page — trailing 90-day daily breakdown. Returns a daily breakdown of measured API uptime over a trailing 90-day window, computed from an internal heartbeat probe that runs every 5 minutes and performs the same DB-connectivity check as GET /health/ready. Each day in the `days` array reports the number of 5-minute slots expected to have elapsed (288 for a complete past day, pro-rated for the feature's first day and for today's partial day), how many of those slots recorded a healthy heartbeat, and the resulting uptime percentage for that day — plus an overall percentage (`overallPct`) across the whole window. `start` is the earliest date included: either the date of the very first heartbeat ever recorded, or 89 days before today once more than 90 days of history exist. Days before that are never returned. Use this to render an uptime history / status bar; for live corpus freshness use GET /v1/data-quality instead. Takes no parameters. Cached for ~5 minutes; no API key or plan required.",
@@ -215,6 +229,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_usage_history',
     operationId: 'GetUsageHistory',
+    title: "API usage history",
     method: 'GET',
     path: '/v1/keys/usage/history',
     description: "Daily request counts for the authenticated key over a trailing window. Returns a daily time series of request counts for the authenticated API key over the trailing N days — one data point per calendar day (UTC). Use this to plot usage trends or check rate-limit headroom over time. For a single current-day snapshot (today's count, plan limit, reset time) use GET /v1/keys/usage instead; for a raw request-by-request log use GET /v1/keys/usage/activity. Requires a valid X-Api-Key (401 without one). Limited to 30 requests per minute per API key, shared with the other /v1/keys/usage routes (429 KEY_USAGE_RATE_LIMIT).",
@@ -228,6 +243,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'get_webhook_events',
     operationId: 'GetWebhookEvents',
+    title: "Webhook delivery events",
     method: 'GET',
     path: '/v1/webhooks/events',
     description: "Replay webhook delivery events since a given timestamp (default: last 24h). Returns up to 500 delivery attempts across all of the authenticated key's subscriptions since `since` (default: last 24 hours), most recent first — delivery id, subscription id, event type, attempt count, delivered-at/next-retry-at timestamps, last HTTP status code from the receiving endpoint, whether the delivery is dead (exhausted all retries), and the event payload. Use this to reconcile missed webhook deliveries (e.g. after an outage on your receiving endpoint) rather than relying solely on push delivery. `since` cannot be more than 30 days in the past. Requires a valid X-Api-Key (401 without one). `eventType` on each row is the exact name accepted by POST /v1/webhooks and sent in the X-Event-Type delivery header (e.g. \"CongressTradeFiled\", \"ConvergenceSignal\" — not dotted names). `payload` is null and `payloadRedacted` is true for any event type above your current plan (CongressTradeFiled requires Starter, ConvergenceSignal requires Pro) — delivery history outlives the plan that created it, so payloads are checked against the plan you are on now, not the plan you had when you subscribed.",
@@ -241,6 +257,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'health_ingestion',
     operationId: 'HealthIngestion',
+    title: "Data ingestion health",
     method: 'GET',
     path: '/health/ingestion',
     description: "Ingestion-death detector — Form 4 freshness, parse-queue health, price-feed freshness. Returns live (uncached) ingestion health: Form 4 processing freshness (stale after 90 minutes during the weekday 06:00-22:00 US Eastern EDGAR activity window, counted from the later of the last filing and the 06:00 opening; outside it, 14 hours or the time since the window last closed plus 90 minutes, whichever is longer, so a normal weekend never reads as stale), parse-queue health (stale when >50 jobs are pending AND the oldest has waited >45 minutes), and daily price-feed freshness (degraded, never stale, when price bars are >5 days behind). Overall status is \"healthy\", \"degraded\" (price feed only), or \"stale\" (Form 4 or queue). Returns HTTP 503 when stale, 200 otherwise — safe to point an external uptime monitor at directly. No API key or plan required.",
@@ -252,6 +269,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'list_companies',
     operationId: 'ListCompanies',
+    title: "Browse companies",
     method: 'GET',
     path: '/v1/companies',
     description: "List companies with a public ticker, sorted by name or total filings. Returns a single page of companies that have a tracked public ticker — for browsing or building a company picker, not for searching by name or CIK (there is no full-text search here; use GET /v1/companies/{ticker} to fetch one company by its exact ticker). Each entry includes the company's CIK, name, ticker, exchange, total filing count, and distinct insider count. There is no page parameter — this endpoint always returns the top `limit` companies by the chosen sort order. Not plan-gated.",
@@ -267,6 +285,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'list_congress_politicians',
     operationId: 'ListCongressPoliticians',
+    title: "Congress trading leaderboard",
     method: 'GET',
     path: '/v1/congress/politicians',
     description: "Ranked rollup of politicians by congressional trade activity (Pro plan+). Returns a paginated list of politicians who have at least one non-superseded congressional trade, each with total/buy/sell counts (sells include both Sale and PartialSale; Exchange trades count only toward total) and their most recent trade's disclosure date. Ordered by total trade count descending, ties broken by most recently disclosed. Use this to discover active traders; for one politician's full profile (including their most-traded tickers and recent trades) use GET /v1/congress/politicians/{idOrSlug}. Requires Pro plan or higher (402 PLAN_REQUIRED on Free/Starter). `limit` is accepted as an alias for `per_page`. Query runs live — no caching.",
@@ -284,6 +303,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'list_congress_trades',
     operationId: 'ListCongressTrades',
+    title: "Congress stock trades",
     method: 'GET',
     path: '/v1/congress/trades',
     description: "Query congressional STOCK Act trades (Free+, plan-clamped disclosure window). Returns a paginated JSON list of congressional periodic-transaction-report trades, most recently DISCLOSED first, with non-superseded rows only (amended-away rows never appear). COVERAGE — HOUSE ONLY TODAY: every trade in this dataset comes from the U.S. House Clerk's PTR index. Senate eFD (efdsearch.senate.gov) returns 403 to datacenter traffic, so no Senate filings are ingested yet. chamber=Senate remains a valid filter but matches nothing and returns the response header X-Coverage-Note: chamber-not-covered, so an empty result is never ambiguous. Scanning by chamber should treat that header as \"not covered\", not as \"no trades\". PLAN-CLAMPED WINDOW: this endpoint is open to every plan, but how far back you can see is clamped on disclosureDate — Free sees only trades disclosed in the last 30 days, Starter the last 366 days, Pro/Business/Enterprise unlimited history. Passing an older disclosure_date_from than your plan allows does not extend the window — the floor always wins. Filters: ticker, politician (bioguideId, exact), party (free-text, case-insensitive exact match — not a fixed enum), chamber (House|Senate — see the coverage note above), state (2-letter code), transaction_type (purchase|sale|partial_sale|exchange), min_amount (range-aware — matches AmountLow >= value, never a fabricated midpoint), transaction_date_from/to, disclosure_date_from/to. Every row always carries BOTH amountLow and amountHigh (STOCK Act discloses ranges, never exact figures) and disclosureLagDays = (disclosureDate - transactionDate) in whole days — the STOCK Act allows up to 45 days of lag, so \"real-time\" here means minutes-after-disclosure, not minutes-after-trade. DATE QUALITY: source dates are sometimes wrong. When a row's dates are impossible or implausible, disclosureLagDays is null and dateQuality names the reason: transaction_after_disclosure (transaction date later than disclosure date), future_transaction_date (transaction date in the future), or implausible_lag (lag above 1500 days, almost always a mistyped year). dateQuality is null on a normal row. Flagged rows are never dropped and their raw transactionDate and disclosureDate are returned unchanged. Genuine late filings with a long but plausible lag keep their disclosureLagDays. For per-politician or per-ticker rollups use GET /v1/congress/politicians, /v1/congress/politicians/{idOrSlug}, or /v1/congress/tickers/{ticker} (all Pro+). To check whether an insider cluster-buy lines up with a congressional purchase in the same ticker, use GET /v1/signals/convergence (Pro+); for the company's own profile use GET /v1/companies/{ticker} (Free). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.",
@@ -323,6 +343,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'list_filings',
     operationId: 'ListFilings',
+    title: "Browse Form 4 filings",
     method: 'GET',
     path: '/v1/filings',
     description: "List Form 4 filings with optional ticker, CIK and date filters. Returns a paginated list of Form 4 filings, newest filed first. Filter by ticker, cik, and a from/to filed-date window. Each entry carries the accession number, company ticker/name, period of report, filed date, acceptedAt (the precise UTC SEC-acceptance instant, null if not captured), documentUrl (the public SEC document URL), amendment type (Original/Amendment), and the count of non-superseded transactions in that filing. Use this for a company's filing HISTORY; use GET /v1/filings/recent for a live newest-first feed (it has no page parameter), and GET /v1/transactions when you want the individual trades rather than the filings that contain them. `limit` is accepted as an alias for `per_page`. Not plan-gated.",
@@ -348,6 +369,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'list_schedule13_dg',
     operationId: 'ListSchedule13DG',
+    title: "13D/13G ownership stakes",
     method: 'GET',
     path: '/v1/ownership/13d-13g',
     description: "List Schedule 13D/13G >5% beneficial-ownership crossings (Business plan+). Returns every parsed >5% beneficial-ownership crossing event for a company — filer/reporting person, ownership percent, event date, form type (13D or 13G), and amendment status — parsed from EDGAR's structured Schedule 13D/13G cover-page XML (mandatory since the SEC's 2023 rule, compliance date 2024-12-18). SC 13D indicates an \"active\" investor who may seek control or influence over the issuer and must file within five business days of crossing the threshold (shortened from 10 days by the SEC's 2023 rule amendments, effective 2024-02-05); SC 13G is a lighter, less frequent filing for \"passive\"/qualified investors (e.g. index funds), with its own accelerated deadlines effective 2024-09-30. A single accession can carry several rows when the filing is a joint filing (e.g. a fund, its general partner, and the individual who controls both) — each reporting person has its own ownership percent. Results exclude rows superseded by a later SC 13D/A or SC 13G/A amendment; the isAmendment field on a returned row indicates whether that row is itself an amendment, not whether it has since been superseded. Requires Business plan or higher (402 PLAN_REQUIRED on Free/Starter/Pro). `limit` is accepted as an alias for `per_page`. Query runs live against the database — no caching.",
@@ -371,6 +393,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'list_webhooks',
     operationId: 'ListWebhooks',
+    title: "Your webhook subscriptions",
     method: 'GET',
     path: '/v1/webhooks',
     description: "List webhook subscriptions owned by the authenticated API key. Returns active webhook subscriptions under the authenticated API key, plus any the system auto-disabled after sustained delivery failures (disabledReason \"delivery_failures\") — those stay visible with disabledAt/disabledReason set so you can see why delivery stopped and reverse it with POST /v1/webhooks/{id}/enable. Subscriptions you deleted yourself (disabledReason \"user_deleted\") are never returned here again, and neither are legacy rows disabled before this field existed (disabledReason null) — both are permanently gone from this list. Each entry: subscription id, target URL, subscribed event types, creation date, active flag, disabledAt/disabledReason (both null while active), and the isReadOnly flag. Delivery health, all nullable: lastAttemptAt (when the most recent delivery attempt, first attempt or retry, finished; null if none yet), lastSuccessAt (when the most recent attempt that got a 2xx finished), lastStatusCode (HTTP status of the most recent attempt; null when no response was received, e.g. timeout or connection failure), and lastErrorClass (why the most recent attempt failed, null if it succeeded or none has been made: HTTP_4XX, HTTP_5XX, HTTP_OTHER, TIMEOUT, DNS, TLS, CONNECT_REFUSED, URL_REJECTED, CIRCUIT_OPEN or OTHER). These reflect only attempts made after this field was introduced; older subscriptions show null until their next attempt. authHeaderName is the name of the custom auth header sent with each delivery (null if none is set); its value is never returned. urlWarning is a string when the URL's host is a temporary tunnel or test host (for example trycloudflare.com, ngrok or webhook.site), otherwise null. Change a subscription's URL with PATCH /v1/webhooks/{id}. Does NOT return the signing secret again (it's shown once, at creation, by POST /v1/webhooks) — regenerate by deleting and recreating the subscription if it's lost. Requires a valid X-Api-Key (401 without one).",
@@ -382,6 +405,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   {
     name: 'search_insiders',
     operationId: 'ListInsiders',
+    title: "Search insider names",
     method: 'GET',
     path: '/v1/insiders',
     description: "Search insiders (officers, directors, 10% owners) by name. Searches insiders by name and returns a paginated list of matches with each insider's CIK, title, director/officer/10%-owner flags, and total filing count. Use this to resolve a person's name to their CIK before fetching their transaction history, career summary, or scorecard — the CIK returned here feeds directly into GET /v1/insiders/{cik}/transactions, /summary, and /scorecard. Omitting the name filter returns insiders in alphabetical order rather than performing a search. `limit` is accepted as an alias for `per_page`. Not plan-gated — available on the Free tier.",

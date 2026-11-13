@@ -27,6 +27,14 @@ This ensures clients can always see what tools are available in a given version 
 
 ## [Unreleased]
 
+### Added
+- Every tool now has a human-readable `title`, sent both as the top-level field and as `annotations.title`. Generated tools take theirs from a title map in `codegen/generate.mjs`, and codegen fails if an operation has no title or two titles collide.
+- `idempotentHint: true` on every tool; all of them are read-only GETs.
+- `eval/`: 25 golden prompts with the expected first tool call, plus `npm run eval:tools`, which dumps the tool surface as clients see it. Not published to npm.
+
+### Changed
+- Tools are sorted by plain code-unit comparison instead of `localeCompare`, so `tools/list` order is the same on every machine. Tests check that titles exist and are unique, that readOnlyHint is set, that names are 64 characters or fewer, and that the order is stable across calls.
+
 ## [1.18.0] — 2026-11-12
 
 **Tool count: 40** (was 39). One tool added, none renamed or removed.

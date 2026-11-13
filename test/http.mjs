@@ -99,6 +99,12 @@ try {
   const names = (list.body?.result?.tools ?? []).map((t) => t.name)
   assert(names.length === 40, `40 tools returned (got ${names.length})`)
   assert(EXPECTED_TOOLS.every((n) => names.includes(n)), 'every expected tool is present')
+  const httpTools = list.body?.result?.tools ?? []
+  assert(httpTools.every((t) => typeof t.title === 'string' && t.title.trim().length > 0), 'every tool has a non-empty title over HTTP')
+  assert(new Set(httpTools.map((t) => t.title)).size === httpTools.length, 'tool titles are unique over HTTP')
+  assert(httpTools.every((t) => t.annotations?.readOnlyHint === true), 'every tool has readOnlyHint over HTTP')
+  const list2 = await rpc(url, 'tools/list', {})
+  assert(JSON.stringify((list2.body?.result?.tools ?? []).map((t) => t.name)) === JSON.stringify(names), 'tools/list order is stable across requests over HTTP')
   const prompts = await rpc(url, 'prompts/list', {})
   assert((prompts.body?.result?.prompts ?? []).length === 6, '6 prompts returned')
 
