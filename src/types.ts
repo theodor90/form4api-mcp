@@ -98,6 +98,8 @@ export interface Signal {
   totalValue: number
   transactionCount: number
   transactions: Transaction[]
+  /** True on the one-item preview returned to Free, Starter and Pro callers. */
+  preview?: boolean
 }
 
 export interface UsageStats {

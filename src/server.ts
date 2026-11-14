@@ -17,17 +17,23 @@ import { researchCompanySchema, researchCompany } from './tools/research.js'
 import { searchSchema, search } from './tools/search.js'
 import { GENERATED_TOOLS } from './tools/_generated.js'
 import { RECIPE_PROMPTS } from './prompts/recipes.js'
+import { assertDefaultToolsRegistered, inToolset, type Toolset } from './toolsets.js'
 import type { TtlCache } from './cache.js'
+import type { ZodRawShape } from 'zod'
 
-const SERVER_INSTRUCTIONS = `Form4API insider trading data: amendment-aware Form 4 transactions, 10b5-1 plan flags, Form 144 intent-to-sell, institutional 13F-HR overlay, and congressional STOCK Act trades — including the insider-cluster-buy x congressional-purchase convergence signal.
+// get_public_stats is outside the default toolset, so the instructions only point
+// at it when it is registered.
+function serverInstructions(toolset: Toolset): string {
+  const all = toolset === 'all'
+  return `Form4API insider trading data: amendment-aware Form 4 transactions, 10b5-1 plan flags, Form 144 intent-to-sell, institutional 13F-HR overlay, and congressional STOCK Act trades — including the insider-cluster-buy x congressional-purchase convergence signal.
 
-Only have a company name, ticker fragment, or a person's name? Call \`search\` first to resolve it to a ticker or CIK. Start with \`research_company\` to get bundled insider context for any ticker. If something fails, run \`verify_setup\` first. Try \`get_public_stats\` without a key to preview the data.
+Only have a company name, ticker fragment, or a person's name? Call \`search\` first to resolve it to a ticker or CIK. Start with \`research_company\` to get bundled insider context for any ticker. If something fails, run \`verify_setup\` first.${all ? ' Try `get_public_stats` without a key to preview the data.' : ''}
 
 Try these prompts:
 • "What insider trades happened at NVDA in the last 30 days, excluding 10b5-1 plans?"
 • "Show me cluster buy signals from this week — multiple insiders at the same company trading in the same direction."
-• "Which politicians traded AAPL, and does that overlap with any insider cluster-buy convergence?"
-• "Call get_public_stats to show me our current data coverage — no API key required."`
+• "Which politicians traded AAPL, and does that overlap with any insider cluster-buy convergence?"${all ? '\n• "Call get_public_stats to show me our current data coverage — no API key required."' : ''}`
+}
 
 function wrapResult(data: unknown): { content: Array<{ type: 'text'; text: string }> } {
   return {
@@ -46,30 +52,101 @@ function wrapError(err: unknown): { content: Array<{ type: 'text'; text: string 
 // All tools in this server are read-only calls to a remote API.
 // Every registration carries these annotations so MCP clients that honour
 // the spec can skip confirmation prompts and mark the tools as safe.
-const READ_ONLY = { readOnlyHint: true, openWorldHint: true } as const
+// idempotentHint is true because every tool is a pure GET: repeating a call has
+// no additional effect.
+const READ_ONLY = { readOnlyHint: true, openWorldHint: true, idempotentHint: true } as const
+
+type ToolResult = { content: Array<{ type: 'text'; text: string }>; isError?: true }
 
 /**
- * Builds a fully registered MCP server (every tool and prompt) bound to the
- * given client. Stdio mode calls this once; the hosted HTTP mode calls it once
- * per request with a client carrying that caller's key, so no credential is
- * ever shared between requests.
+ * Registers one tool with a human-readable title. The title is carried twice:
+ * as the top-level `title` field (MCP 2025-06-18+) and as `annotations.title`
+ * (older clients), so every client that supports either one shows it.
  */
-export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServer {
+interface Registration {
+  toolset: Toolset
+  /** Every tool name seen, in the active set or not. */
+  all: string[]
+  /** Names actually registered. */
+  registered: string[]
+}
+
+// Per-server registration state, so the ~40 registerReadOnlyTool call sites
+// below stay unchanged.
+const registrations = new WeakMap<McpServer, Registration>()
+
+function registerReadOnlyTool(
+  server: McpServer,
+  name: string,
+  title: string,
+  description: string,
+  shape: ZodRawShape,
+  handler: (input: Record<string, unknown>) => Promise<ToolResult>,
+): void {
+  const reg = registrations.get(server)
+  if (reg) {
+    reg.all.push(name)
+    // Outside the active toolset: not registered, so it is absent from tools/list
+    // and tools/call fails as an unknown tool.
+    if (!inToolset(reg.toolset, name)) return
+    reg.registered.push(name)
+  }
+  server.registerTool(
+    name,
+    {
+      title,
+      description,
+      inputSchema: shape,
+      annotations: { ...READ_ONLY, title },
+    },
+    handler as never,
+  )
+}
+
+export interface CreateServerOptions {
+  /** Which tools to register. Defaults to `all`, so direct callers keep every tool. */
+  toolset?: Toolset
+}
+
+export interface BuiltServer {
+  server: McpServer
+  /** Tool names registered under the active toolset. */
+  registered: string[]
+  /** Every tool name in the full set (registered or not). */
+  all: string[]
+}
+
+/**
+ * Builds a fully registered MCP server (the tools in the active toolset, plus
+ * every prompt) bound to the given client. Stdio mode calls this once; the
+ * hosted HTTP mode calls it once per request with a client carrying that
+ * caller's key, so no credential is ever shared between requests.
+ */
+export function createServer(client: Form4ApiClient, cache?: TtlCache, options: CreateServerOptions = {}): McpServer {
+  return buildServer(client, cache, options).server
+}
+
+/** Same as createServer, but also reports which tool names were registered and which exist. */
+export function buildServer(client: Form4ApiClient, cache?: TtlCache, options: CreateServerOptions = {}): BuiltServer {
   const server = new McpServer(
     {
       name: 'form4api',
       version: VERSION,
     },
     {
-      instructions: SERVER_INSTRUCTIONS,
+      instructions: serverInstructions(options.toolset ?? 'all'),
     },
   )
 
-  server.tool(
+  const reg: Registration = { toolset: options.toolset ?? 'all', all: [], registered: [] }
+  registrations.set(server, reg)
+
+  registerReadOnlyTool(
+    server,
     'get_transactions',
+    'Search insider transactions',
     "Search SEC Form 4 insider transactions with rich filters: ticker, insider CIK, transaction code/category, date range, a dollar floor (min_value), institutional-ownership trend, and (Pro+) upper trade-size bounds plus post-trade return screening (1d/1w/1m/3m/6m, returns as fractions e.g. 0.05 = +5%). Returns transaction-level rows — shares, price, total value, transaction code, 10b5-1 flag, insider role flags. Use this for filtered or historical search across many companies/insiders; use get_recent_filings for an unfiltered live feed instead, or get_insider_transactions/get_company_insiders when you already have a specific insider or company. Free plan, including min_value; max_value/min_shares/max_shares/min_return_*/max_return_*/has_returns require Pro. Paginated, max 100/page, and paging depth is plan-limited (Free 20 pages, Starter 100, Pro+ unlimited) — for a bulk pull use the REST endpoint GET /v1/transactions/export (Business) instead of paging.",
     getTransactionsSchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getTransactions(client, input as Parameters<typeof getTransactions>[1]))
@@ -79,11 +156,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'get_recent_filings',
+    'Latest Form 4 filings',
     'Live feed of the newest SEC Form 4 filings, sorted most-recent-first, optionally filtered to one ticker. New filings typically appear within ~60 seconds of SEC publication. Use this to check "what just happened" rather than get_transactions (built for filtered/historical search across date ranges and codes). Returns per-filing accession number, filed/period-of-report dates, company + insider identity, and transaction count; pass the accession number to get_filing for full detail. Free plan. Paginated, max 100/page.',
     getRecentFilingsSchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getRecentFilings(client, input as Parameters<typeof getRecentFilings>[1]))
@@ -93,11 +171,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'get_filing',
+    'Look up a filing',
     'Fetch one Form 4 filing by its exact SEC accession number (format NNNNNNNNNN-YY-NNNNNN, e.g. 0000320193-26-000001). Use this once you already have an accession number from get_recent_filings or get_transactions. Returns filed/period-of-report dates, company and insider identity, and transaction count for that filing. Free plan.',
     getFilingSchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getFiling(client, input as Parameters<typeof getFiling>[1]))
@@ -107,11 +186,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'get_insider_profile',
+    'Insider profile',
     "Identity card for one insider by CIK (SEC's numeric filer identifier): name, all known titles, and director/officer/10%-owner role flags. Returns NO transactions — when the user asks what an insider bought, sold or filed, use get_insider_transactions (raw rows) or get_insider_career_summary (aggregated rollup) instead. If you only have a name, resolve it to a CIK first with search. Free plan.",
     getInsiderProfileSchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getInsiderProfile(client, input as Parameters<typeof getInsiderProfile>[1]))
@@ -121,11 +201,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'get_insider_transactions',
+    'Trades by one insider',
     "All Form 4 transactions filed by one insider (by CIK), filterable by ticker, transaction code, date range, and 10b5-1 exclusion. Use this once you have an insider's CIK on hand; get_transactions with insider_cik= gives the same rows alongside its broader filter set, while get_insider_career_summary returns a pre-aggregated rollup instead of raw rows. Free plan. Paginated, max 100/page.",
     getInsiderTransactionsSchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getInsiderTransactions(client, input as Parameters<typeof getInsiderTransactions>[1]))
@@ -135,11 +216,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'get_company_overview',
+    'Company overview',
     "Company profile for a single ticker — name, CIK, SIC sector/description, state of incorporation, website, total Form 4 filing count, and active insider count. Use this for company identity/metadata; use get_company_insiders to list who is filing, or get_transactions with ticker= for their trade history. Free plan.",
     getCompanyOverviewSchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getCompanyOverview(client, input as Parameters<typeof getCompanyOverview>[1]))
@@ -149,11 +231,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'get_company_insiders',
+    'Company insider roster',
     "Full roster of insiders who have ever filed a Form 4 for a given ticker — name, CIK, titles, director/officer/10%-owner flags, last-filed date, and total transaction count per insider. Use this to enumerate a company's insiders (e.g. before pulling each one's career summary); use get_transactions with ticker= for the underlying trade history itself. Free plan. Paginated, max 100/page.",
     getCompanyInsidersSchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getCompanyInsiders(client, input as Parameters<typeof getCompanyInsiders>[1]))
@@ -163,11 +246,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'get_signals',
-    'Cluster buy/sell signals — multiple insiders at the same company trading in the same direction within a short window, a stronger conviction signal than any single trade. Excludes 10b5-1 plan trades automatically by construction. Returns signal type, detection date, buyer/seller counts, total $ value, and the underlying transactions. Use this to FIND which companies have signals; when the user already names a company and asks WHY its signal fired or which insiders were in the cluster, call explain_signal with that ticker directly instead. Use get_transactions instead for raw, unaggregated trade search. Requires Business plan (a 402 upgrade_required response is returned otherwise). Paginated, max 50/page.',
+    'Insider cluster signals',
+    'Cluster buy/sell signals — multiple insiders at the same company trading in the same direction within a short window, a stronger conviction signal than any single trade. Excludes 10b5-1 plan trades automatically by construction. Returns signal type, detection date, buyer/seller counts, total $ value, and the underlying transactions. Use this to FIND which companies have signals; when the user already names a company and asks WHY its signal fired or which insiders were in the cluster, call explain_signal with that ticker directly instead. Use get_transactions instead for raw, unaggregated trade search. Business plan gets the full feed. On Free, Starter and Pro it returns a one-item preview instead: the single most recent cluster-BUY signal across all companies (ticker, companyName, signalDate, insiderCount, preview: true); all filters are ignored, there are no sell signals, and buySellRatio 0 / isClusterSell false are placeholders, not data. Paginated, max 50/page.',
     getSignalsSchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getSignals(client, input as Parameters<typeof getSignals>[1]))
@@ -177,11 +261,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'get_form144',
+    'Form 144 sale notices',
     'Form 144 notice-of-proposed-sale filings — insiders disclose intent to sell roughly 2 days before the matching Form 4 sale lands, so this is an early-warning signal, especially discretionary (non-10b5-1) notices. Filter by ticker, insider name (partial match), date range, or exclude_10b5. Cross-reference with get_transactions/get_insider_transactions to see whether the intent was actually executed. Requires Business plan. Paginated, max 100/page.',
     getForm144Schema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getForm144(client, input as Parameters<typeof getForm144>[1]))
@@ -191,11 +276,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'get_holdings',
+    'Institutional 13F holdings',
     'Institutional 13F-HR positions — filter by ticker (CUSIP resolved to ticker automatically), CUSIP, manager CIK, quarter, or minimum position value. Answers "who owns NVDA" or "which managers hold AAPL this quarter"; pair with get_managers to look up a manager\'s identity/AUM, or get_transactions to cross-reference insider activity at the same company. Requires Business plan. Paginated, max 100/page.',
     getHoldingsSchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getHoldings(client, input as Parameters<typeof getHoldings>[1]))
@@ -205,11 +291,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'get_managers',
+    'Institutional managers',
     'Browse the institutional manager index — each manager with their latest 13F-HR filing date and AUM. Filter by name (partial match — "Berkshire" returns Berkshire Hathaway) or minimum AUM. Pair with get_holdings to see what a given manager owns. Requires Business plan. Paginated, max 100/page.',
     getManagersSchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getManagers(client, input as Parameters<typeof getManagers>[1]))
@@ -219,11 +306,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'get_sentiment',
+    'Insider sentiment score',
     'Monthly insider-sentiment score for a ticker (MSPR-style, -100 to +100; positive = net buying conviction), one point per month, defaulting to roughly the last 12 months. Automatically excludes 10b5-1 plan trades so the score reflects discretionary conviction, not pre-scheduled dispositions. Use get_transactions or get_signals for the trade-level detail behind a given month. Requires Business plan.',
     getSentimentSchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getSentiment(client, input as Parameters<typeof getSentiment>[1]))
@@ -233,11 +321,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'get_insider_career_summary',
+    'Insider career summary',
     'Aggregate career rollup for one insider by CIK — first/last transaction dates, total shares/value bought vs sold, top companies traded, transaction-code breakdown, 10b5-1 plan split, and median post-trade returns (stored as fractions, e.g. 0.05 = +5%). Use this instead of get_insider_transactions when you want a pre-computed summary rather than raw rows; pair with the generated get_insider_scorecard for hit-rate statistics on their discretionary buys specifically. Requires Pro plan.',
     getInsiderCareerSummarySchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await getInsiderCareerSummary(client, input as Parameters<typeof getInsiderCareerSummary>[1]))
@@ -247,11 +336,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'check_usage',
+    'Check API usage',
     "Snapshot of the authenticated API key's current usage — plan name, requests made today, daily limit, and all-time request count. Use this for a quick right-now check; use the generated get_usage_history tool for a daily trend over time, or get_key_activity for a per-request log. Free plan, works on every tier.",
     checkUsageSchema.shape,
-    READ_ONLY,
     async (_input) => {
       try {
         return wrapResult(await checkUsage(client, {}))
@@ -261,11 +351,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'verify_setup',
+    'Verify setup',
     'Diagnostic check: confirms FORM4API_KEY is present and valid, the backend is reachable, and reports your current plan — returns a pass/fail/warn per check plus concrete next steps (where to get a key, how to upgrade) instead of a raw error. Run this first whenever another tool fails or returns a 401/402, to isolate whether the problem is configuration, plan, or a backend outage. No API key or parameters required.',
     verifySetupSchema.shape,
-    READ_ONLY,
     async () => {
       try {
         return wrapResult(await verifySetup({}, client.diagnosticContext()))
@@ -275,11 +366,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'search',
+    'Find companies and insiders',
     'Resolve free-text input — a company name, ticker fragment, or a person\'s name — to a ticker or CIK. This is usually the right FIRST call when a user names a company or insider you don\'t already have an identifier for; feed the resulting ticker into get_company_overview/get_transactions or the CIK into get_insider_profile/get_insider_transactions. Returns two independently-ranked lists: `companies` (only ones with a resolved public ticker, ranked exact ticker match, then ticker-prefix, then name-prefix, then name-contains) and `insiders` (matched by splitting the query on whitespace so every token must match the name, e.g. "tim cook" matches SEC-style "Cook Timothy D"; ranked by total filing count, most active first). Each insider\'s `ticker` is a ticker associated with that insider (may be null). `q` must be 2-64 characters after trimming (400 QUERY_TOO_SHORT/QUERY_TOO_LONG). `limit` applies independently to each list, default 8, max 20. Free plan, no caching.',
     searchSchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await search(client, input as Parameters<typeof search>[1]))
@@ -289,11 +381,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     },
   )
 
-  server.tool(
+  registerReadOnlyTool(
+    server,
     'research_company',
-    "Bundled insider-research context for one ticker in a single call — company profile, recent insider transactions (10b5-1 flagged), cluster buy/sell signals, monthly sentiment score, and a computed net buy/sell direction summary. Use this FIRST for any company insider-research question; it replaces 4 separate calls (get_company_overview, get_transactions, get_signals, get_sentiment) and degrades gracefully — if signals/sentiment require a plan you don't have, they come back null with an explanatory `_unavailable` note instead of failing the whole call. Company/transaction data works on Free; signals/sentiment sections require Business. Fetches all sections concurrently. Research and decision-support only, not investment advice.",
+    'Research a company',
+    "Bundled insider-research context for one ticker in a single call — company profile, recent insider transactions (10b5-1 flagged), cluster buy/sell signals, monthly sentiment score, and a computed net buy/sell direction summary. Use this FIRST for any company insider-research question; it replaces 4 separate calls (get_company_overview, get_transactions, get_signals, get_sentiment) and degrades gracefully — if sentiment requires a plan you don't have, it comes back null with an explanatory `_unavailable` note instead of failing the whole call. Company/transaction data works on Free. Below Business, `signals` is a one-item preview (the latest cluster-buy across all companies, not necessarily this ticker), flagged with `signals_preview: true` and a `signals_unavailable` note; the full signals feed and sentiment require Business. Fetches all sections concurrently. Research and decision-support only, not investment advice.",
     researchCompanySchema.shape,
-    READ_ONLY,
     async (input) => {
       try {
         return wrapResult(await researchCompany(client, input as Parameters<typeof researchCompany>[1]))
@@ -311,11 +404,12 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
   // the next codegen run without a manual src/tools/*.ts file.
   // PLAN_MCP_DEFENSE Phase 4 (2026-06-01).
   for (const tool of GENERATED_TOOLS) {
-    server.tool(
+    registerReadOnlyTool(
+      server,
       tool.name,
+      tool.title,
       tool.description,
       tool.schema,
-      READ_ONLY,
       async (input) => {
         try {
           const args = input as Record<string, unknown>
@@ -345,5 +439,8 @@ export function createServer(client: Form4ApiClient, cache?: TtlCache): McpServe
     )
   }
 
-  return server
+  // A rename must not silently shrink the default set.
+  assertDefaultToolsRegistered(reg.all)
+
+  return { server, registered: reg.registered, all: reg.all }
 }

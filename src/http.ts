@@ -7,14 +7,15 @@
 // no session map, so two concurrent callers cannot see each other's key.
 //
 // Logging: at most one line per request (method, path without query, status,
-// duration, keyed yes/no). Header values, keys and bodies are never logged.
+// duration, keyed yes/no, toolset name for /mcp). Header values, keys and bodies are never logged.
 
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import net from 'node:net'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { Form4ApiClient, VERSION } from './client.js'
-import { createServer } from './server.js'
+import { buildServer } from './server.js'
 import { TtlCache } from './cache.js'
+import { ACCEPTED_TOOLSET_TEXT, parseToolset, toolsetFromEnv, toolsetWarning, type Toolset } from './toolsets.js'
 
 export interface HttpOptions {
   port: number
@@ -41,6 +42,10 @@ export interface HttpOptions {
   maxBodyBytes: number
   /** Whole-request budget in milliseconds. */
   requestTimeoutMs: number
+  /** Toolset for requests that do not pass ?toolsets=. `default` (15 tools) unless MCP_DEFAULT_TOOLSETS=all. */
+  defaultToolset: Toolset
+  /** Unusable MCP_DEFAULT_TOOLSETS value, ignored; reported once at startup. */
+  invalidDefaultToolset: string | null
   /** Upstream API base URL; defaults to FORM4API_BASE_URL / production. */
   baseUrl?: string
   /** Set false to silence the per-request log line (tests). */
@@ -53,7 +58,10 @@ export function httpOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): HttpOp
     return Number.isFinite(n) && n > 0 ? n : d
   }
   const { valid, invalid } = parseCidrList(env.MCP_TRUSTED_PROXY_CIDRS)
+  const tools = toolsetFromEnv(env.MCP_DEFAULT_TOOLSETS, 'default')
   return {
+    defaultToolset: tools.toolset,
+    invalidDefaultToolset: tools.invalid,
     port: v0(env.PORT, 3000),
     host: env.HOST || '0.0.0.0',
     trustProxy: env.TRUST_PROXY === '1',
@@ -219,6 +227,24 @@ export function extractKey(req: IncomingMessage): string | null {
   return null
 }
 
+/**
+ * The toolset for one request: `?toolsets=` on the URL if present, else the
+ * server default. Anything but `default` / `all` (case-insensitive, trimmed) is
+ * an error, as is a repeated parameter whose values disagree.
+ */
+export function resolveRequestToolset(rawUrl: string | undefined, fallback: Toolset): Toolset | null {
+  let values: string[] = []
+  try {
+    values = new URL(rawUrl ?? '/', 'http://localhost').searchParams.getAll('toolsets')
+  } catch {
+    // unparseable URL: treat as no parameter
+  }
+  if (values.length === 0) return fallback
+  const parsed = values.map(parseToolset)
+  const first = parsed[0]
+  return first !== null && parsed.every((p) => p === first) ? first : null
+}
+
 function clientIp(req: IncomingMessage, trustProxy: boolean): string {
   if (trustProxy) {
     const xff = req.headers['x-forwarded-for']
@@ -297,16 +323,19 @@ export function createHttpApp(opts: HttpOptions): {
     // The key is read once, here. `keyed` is all that is ever logged about it.
     const key = path === '/mcp' ? extractKey(req) : null
     const keyed = key !== null
+    // Only /mcp has a toolset. The log carries its name, never the query string.
+    const toolset = path === '/mcp' ? resolveRequestToolset(req.url, opts.defaultToolset) : opts.defaultToolset
 
     if (opts.log) {
       res.on('close', () => {
+        const label = path !== '/mcp' ? '' : ` toolset=${toolset ?? 'invalid'}`
         process.stderr.write(
-          `${method} ${path} ${res.statusCode} ${Date.now() - started}ms keyed=${keyed ? 'yes' : 'no'}\n`,
+          `${method} ${path} ${res.statusCode} ${Date.now() - started}ms keyed=${keyed ? 'yes' : 'no'}${label}\n`,
         )
       })
     }
 
-    handle(req, res, path, key, opts, guards).catch(() => {
+    handle(req, res, path, key, toolset, opts, guards).catch(() => {
       send(res, 500, jsonRpcError(-32603, 'Internal server error'))
     })
   })
@@ -321,6 +350,7 @@ async function handle(
   res: ServerResponse,
   path: string,
   key: string | null,
+  toolset: Toolset | null,
   opts: HttpOptions,
   guards: Guards,
 ): Promise<void> {
@@ -397,6 +427,11 @@ async function handle(
     }
   }
 
+  if (toolset === null) {
+    send(res, 400, jsonRpcError(-32602, `Invalid "toolsets" value. Accepted values are ${ACCEPTED_TOOLSET_TEXT}, for example /mcp?toolsets=all.`))
+    return
+  }
+
   let parsed: unknown
   try {
     const raw = await readBody(req, opts.maxBodyBytes)
@@ -414,7 +449,27 @@ async function handle(
   req.headers.accept = 'application/json, text/event-stream'
 
   const client = new Form4ApiClient(key, { remote: true, baseUrl: opts.baseUrl })
-  const mcp = createServer(client, guards.cache)
+  const { server: mcp, registered, all } = buildServer(client, guards.cache, { toolset })
+
+  // A tool that exists but is outside this request's toolset: say how to enable it,
+  // instead of the SDK's bare "Tool X not found". Same shape the SDK uses for its own
+  // tool errors (a result with isError), answered here before the server sees it.
+  // JSON-RPC batches are left to the SDK default.
+  const msg = parsed as { id?: unknown; method?: unknown; params?: { name?: unknown } } | null
+  const wanted = msg && !Array.isArray(msg) && msg.method === 'tools/call' ? msg.params?.name : undefined
+  if (typeof wanted === 'string' && all.includes(wanted) && !registered.includes(wanted)) {
+    const text =
+      `Tool "${wanted}" exists in the full Form4API toolset but is not enabled on this connection, ` +
+      `which exposes the ${registered.length} default tools. Add ?toolsets=all to the MCP server URL ` +
+      `(for example https://mcp.form4api.com/mcp?toolsets=all) to enable all ${all.length} tools.`
+    send(res, 200, JSON.stringify({
+      jsonrpc: '2.0',
+      id: typeof msg?.id === 'string' || typeof msg?.id === 'number' ? msg.id : null,
+      result: { content: [{ type: 'text', text }], isError: true },
+    }))
+    return
+  }
+
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
@@ -446,6 +501,10 @@ export function startHttpServer(opts: HttpOptions = httpOptionsFromEnv()): Serve
     process.stderr.write(
       `warning: ignoring ${opts.invalidTrustedCidrs.length} malformed MCP_TRUSTED_PROXY_CIDRS entr${opts.invalidTrustedCidrs.length === 1 ? 'y' : 'ies'}: ${shown}\n`,
     )
+  }
+
+  if (opts.invalidDefaultToolset !== null) {
+    process.stderr.write(toolsetWarning('MCP_DEFAULT_TOOLSETS', opts.invalidDefaultToolset, 'default'))
   }
 
   const sweeper = setInterval(() => { limiter.sweep(); flood?.sweep() }, 60_000)

@@ -1,0 +1,177 @@
+[
+  {
+    "id": "gp01-company-trades-no-10b5",
+    "prompt": "What insider trades happened at NVDA in the last 30 days, excluding 10b5-1 plans?",
+    "expected": ["get_transactions"],
+    "expected_default": ["get_transactions"],
+    "notes": "get_transactions is the filtered search (ticker, date range, 10b5-1 exclusion). research_company only flags 10b5-1 rows, it cannot exclude them."
+  },
+  {
+    "id": "gp02-market-wide-latest",
+    "prompt": "What Form 4 filings just came in? I want to see what insiders are filing right now across the whole market.",
+    "expected": ["get_recent_filings"],
+    "expected_default": ["get_recent_filings"],
+    "notes": "get_recent_filings is the unfiltered live feed, newest first. Its description says to use it for 'what just happened'."
+  },
+  {
+    "id": "gp03-latest-filings-one-ticker",
+    "prompt": "Show me the latest Form 4 filings for AAPL.",
+    "expected": ["get_recent_filings"],
+    "expected_default": ["get_recent_filings"],
+    "notes": "Live feed optionally filtered to one ticker. list_filings is described as company filing HISTORY with paging, so it is not the first call for 'latest'."
+  },
+  {
+    "id": "gp04-cluster-buys",
+    "prompt": "Which companies have insider cluster buys this week, where several insiders bought at the same company?",
+    "expected": ["get_signals"],
+    "expected_default": ["get_signals"],
+    "notes": "get_signals finds which companies have cluster buy/sell signals. Business plan."
+  },
+  {
+    "id": "gp05-explain-signal",
+    "prompt": "The cluster-buy signal on CROX fired recently. Why did it fire, and which insiders were in the cluster?",
+    "expected": ["explain_signal"],
+    "expected_default": ["get_signals"],
+    "notes": "Both get_signals and explain_signal descriptions say a named company plus 'why did it fire' goes straight to explain_signal with the ticker. Business plan."
+  },
+  {
+    "id": "gp06-named-person",
+    "prompt": "What has Tim Cook been buying and selling lately?",
+    "expected": ["search", "search_insiders"],
+    "expected_default": ["search"],
+    "notes": "Only a name is given. search is described as the usual first call to resolve a person to a CIK; search_insiders is described the same way (resolve a name to a CIK before fetching transactions). Both are acceptable first calls."
+  },
+  {
+    "id": "gp07-insider-by-cik",
+    "prompt": "List every Form 4 transaction filed by the insider with CIK 1214156.",
+    "expected": ["get_insider_transactions", "get_transactions"],
+    "expected_default": ["get_insider_transactions", "get_transactions"],
+    "notes": "get_insider_transactions is the per-insider tool; get_transactions with insider_cik= returns the same rows per its own description."
+  },
+  {
+    "id": "gp08-career-summary",
+    "prompt": "Give me an overall career summary for insider CIK 1214156: total bought versus sold, top companies, and median returns.",
+    "expected": ["get_insider_career_summary"],
+    "expected_default": null,
+    "notes": "Pre-aggregated career rollup. Pro plan."
+  },
+  {
+    "id": "gp09-insider-scorecard",
+    "prompt": "Is insider CIK 1214156 any good at buying? What is their hit rate on discretionary buys?",
+    "expected": ["get_insider_scorecard"],
+    "expected_default": ["get_insider_scorecard"],
+    "notes": "Scorecard is the scored track record (hit rate, avg/median return) on discretionary buys. Pro plan."
+  },
+  {
+    "id": "gp10-leaderboard",
+    "prompt": "Which insiders have the best track record on their stock purchases across the whole market?",
+    "expected": ["get_insider_leaderboard"],
+    "expected_default": null,
+    "notes": "Leaderboard ranks insiders corpus-wide by buy track record; the scorecard is for one known CIK. Business plan."
+  },
+  {
+    "id": "gp11-form144",
+    "prompt": "Has anyone at TSLA filed a Form 144 notice of proposed sale lately? I want an early warning of upcoming insider selling.",
+    "expected": ["get_form144"],
+    "expected_default": ["get_form144"],
+    "notes": "Form 144 intent-to-sell filings, filterable by ticker. Business plan."
+  },
+  {
+    "id": "gp12-13f-holders",
+    "prompt": "Which institutional managers hold the most NVDA this quarter, according to 13F filings?",
+    "expected": ["get_holdings"],
+    "expected_default": ["get_holdings"],
+    "notes": "get_holdings answers 'who owns NVDA' from 13F-HR positions, filterable by ticker and quarter. Business plan."
+  },
+  {
+    "id": "gp13-manager-aum",
+    "prompt": "How much does Berkshire Hathaway manage, and when did it last file a 13F?",
+    "expected": ["get_managers"],
+    "expected_default": null,
+    "notes": "get_managers browses the manager index with latest 13F-HR filing date and AUM; description uses the 'Berkshire' partial-name example. Business plan."
+  },
+  {
+    "id": "gp14-congress-ticker",
+    "prompt": "Which members of Congress have traded AAPL recently?",
+    "expected": ["list_congress_trades", "get_congress_ticker_rollup"],
+    "expected_default": ["list_congress_trades"],
+    "notes": "list_congress_trades (Free, ticker filter) gives the trades; get_congress_ticker_rollup (Pro) gives the per-politician rollup for a ticker. Both fit."
+  },
+  {
+    "id": "gp15-named-politician",
+    "prompt": "Show me Nancy Pelosi's recent stock trades.",
+    "expected": ["get_congress_politician", "list_congress_trades"],
+    "expected_default": ["list_congress_trades"],
+    "notes": "get_congress_politician accepts the URL slug 'nancy-pelosi' and returns recent trades (Pro). list_congress_trades filters by bioguide ID (Free, 30-day window). Either is a correct first call depending on plan."
+  },
+  {
+    "id": "gp16-convergence",
+    "prompt": "Are there any stocks where insiders are cluster-buying and members of Congress also bought?",
+    "expected": ["get_convergence_signals"],
+    "expected_default": ["get_convergence_signals"],
+    "notes": "The insider cluster-buy x congressional purchase convergence signal. Pro plan."
+  },
+  {
+    "id": "gp17-returns-after-trades",
+    "prompt": "What happened to TSLA's stock price after its insiders bought? Do those buys tend to beat the market?",
+    "expected": ["get_company_returns_summary"],
+    "expected_default": null,
+    "notes": "Median returns after insider buys and sells at one company with a site-wide baseline and SPY-excess figures. Pro plan."
+  },
+  {
+    "id": "gp18-company-peers",
+    "prompt": "What companies are similar to Moderna in the same industry, and which of them have the most insider filing activity?",
+    "expected": ["get_company_peers"],
+    "expected_default": null,
+    "notes": "Peers by SIC code ranked by recent Form 4 activity. Not plan-gated."
+  },
+  {
+    "id": "gp19-data-freshness",
+    "prompt": "Is the insider data current right now? Is ingestion stalled or running normally?",
+    "expected": ["get_data_quality", "health_ingestion"],
+    "expected_default": null,
+    "notes": "get_data_quality is described as the check that the dataset is current and ingestion is not stalled; health_ingestion is the live ingestion-death detector. Both are keyless and both fit."
+  },
+  {
+    "id": "gp20-corpus-totals",
+    "prompt": "How big is the Form4API dataset? Give me the headline totals: filings, transactions and companies tracked.",
+    "expected": ["get_public_stats"],
+    "expected_default": null,
+    "notes": "get_public_stats says to use it for corpus-wide totals; get_data_quality says it is for freshness and coverage quality. No key needed."
+  },
+  {
+    "id": "gp21-usage-now",
+    "prompt": "How many API requests have I used today, and what plan am I on?",
+    "expected": ["check_usage"],
+    "expected_default": null,
+    "notes": "Snapshot of current usage, plan, daily limit. Needs a key."
+  },
+  {
+    "id": "gp22-usage-trend",
+    "prompt": "Show me my API request counts per day for the last 14 days.",
+    "expected": ["get_usage_history"],
+    "expected_default": null,
+    "notes": "Daily time series; check_usage's own description points trend questions here."
+  },
+  {
+    "id": "gp23-setup-problem",
+    "prompt": "Every call returns a 401 error. Can you check whether my Form4API setup is working?",
+    "expected": ["verify_setup"],
+    "expected_default": ["verify_setup"],
+    "notes": "verify_setup is described as the first thing to run when another tool fails with a 401/402."
+  },
+  {
+    "id": "gp24-company-research",
+    "prompt": "Give me a full rundown of insider activity at MSFT: company profile, recent insider trades, any signals and the overall buy/sell direction.",
+    "expected": ["research_company"],
+    "expected_default": ["research_company"],
+    "notes": "research_company bundles profile, transactions, signals, sentiment and net direction in one call and says to use it FIRST for any company research question."
+  },
+  {
+    "id": "gp25-sentiment",
+    "prompt": "What is the monthly insider sentiment score for AMZN over the past year?",
+    "expected": ["get_sentiment"],
+    "expected_default": ["research_company"],
+    "notes": "Monthly MSPR-style score, about 12 months by default. Business plan. research_company also embeds sentiment but is described as a bundle, so only get_sentiment is listed."
+  }
+]

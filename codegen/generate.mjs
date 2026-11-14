@@ -83,6 +83,37 @@ const NAME_OVERRIDES = {
   ListInsiders: 'search_insiders',
 }
 
+// Human-readable tool titles, keyed by operationId. Required for every
+// generated operation: the Claude Connectors Directory wants a title on every
+// tool. Sentence case, 2-5 words, no trailing period, no product name, unique.
+// Codegen FAILS if an operation has no entry, so a new endpoint cannot ship
+// untitled.
+const TITLES = {
+  ExplainSignal: 'Explain a signal',
+  GetCompanyPeers: 'Peer companies',
+  GetCompanyReturnsSummary: 'Returns after company trades',
+  GetCongressPolitician: 'Congress member profile',
+  GetCongressTickerRollup: 'Congress trades by ticker',
+  GetConvergenceSignals: 'Insider and Congress convergence',
+  GetDataQuality: 'Data quality metrics',
+  GetInsiderDirectory: 'Insider A-Z directory',
+  GetInsiderLeaderboard: 'Insider leaderboard',
+  GetInsiderScorecard: 'Insider buy scorecard',
+  GetKeyActivity: 'API key activity log',
+  GetPublicStats: 'Public dataset statistics',
+  GetStatusHistory: 'Service uptime history',
+  GetUsageHistory: 'API usage history',
+  GetWebhookEvents: 'Webhook delivery events',
+  HealthIngestion: 'Data ingestion health',
+  ListCompanies: 'Browse companies',
+  ListCongressPoliticians: 'Congress trading leaderboard',
+  ListCongressTrades: 'Congress stock trades',
+  ListFilings: 'Browse Form 4 filings',
+  ListInsiders: 'Search insider names',
+  ListSchedule13DG: '13D/13G ownership stakes',
+  ListWebhooks: 'Your webhook subscriptions',
+}
+
 function pascalToSnake(s) {
   return s.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2').toLowerCase()
 }
@@ -182,6 +213,7 @@ async function main() {
   const spec = await res.json()
 
   const tools = []
+  const missingTitles = []
   let skipped = 0
 
   for (const [pathTemplate, methods] of Object.entries(spec.paths)) {
@@ -197,12 +229,19 @@ async function main() {
         continue
       }
 
+      const title = TITLES[opId]
+      if (!title) {
+        missingTitles.push(opId)
+        continue
+      }
+
       const params = op.parameters ?? []
       const schemaFields = params.map((p) => `  ${p.name}: ${zodForParam(p)},`).join('\n')
 
       tools.push({
         name: toolNameFor(opId),
         operationId: opId,
+        title,
         method: method.toUpperCase(),
         path: pathTemplate,
         description: descriptionFor(op),
@@ -212,7 +251,22 @@ async function main() {
     }
   }
 
-  tools.sort((a, b) => a.name.localeCompare(b.name))
+  if (missingTitles.length > 0) {
+    throw new Error(
+      `No tool title for operation(s): ${missingTitles.join(', ')}. ` +
+        'Add an entry to TITLES in codegen/generate.mjs (sentence case, 2-5 words, unique) ' +
+        'or add the operation to SKIP_OPERATIONS.',
+    )
+  }
+  const titleList = tools.map((t) => t.title)
+  const dupTitles = titleList.filter((t, i) => titleList.indexOf(t) !== i)
+  if (dupTitles.length > 0) {
+    throw new Error(`Duplicate tool title(s) in TITLES: ${[...new Set(dupTitles)].join(', ')}`)
+  }
+
+  // Plain code-unit comparison: locale-independent, so the output order (and
+  // therefore tools/list order) is identical on every machine.
+  tools.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
 
   const header = `// AUTO-GENERATED — DO NOT EDIT BY HAND.
 // Source: ${SPEC_URL}
@@ -233,6 +287,7 @@ import type { Form4ApiClient } from '../client.js'
 export interface GeneratedTool {
   name: string
   operationId: string
+  title: string
   method: string
   path: string
   description: string
@@ -246,6 +301,7 @@ export const GENERATED_TOOLS: GeneratedTool[] = [
   const toolBlocks = tools.map((t) => `  {
     name: '${t.name}',
     operationId: '${t.operationId}',
+    title: ${JSON.stringify(t.title)},
     method: '${t.method}',
     path: '${t.path}',
     description: ${JSON.stringify(t.description)},
