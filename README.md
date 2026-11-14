@@ -245,7 +245,7 @@ Values are `default` or `all`, case-insensitive. In the URL, anything else is an
 
 | Tool | Description | Plan |
 |---|---|---|
-| `research_company` | Bundled insider-research context for one ticker in a single call — company profile, recent transactions, cluster signals, sentiment, and a computed buy/sell direction summary. Replaces 4 separate calls and degrades gracefully when a section needs a higher plan | Free (signals/sentiment sections need Business) |
+| `research_company` | Bundled insider-research context for one ticker in a single call — company profile, recent transactions, cluster signals, sentiment, and a computed buy/sell direction summary. Replaces 4 separate calls and degrades gracefully when a section needs a higher plan | Free (signals section is a one-signal preview below Business, flagged `signals_preview`; sentiment needs Business) |
 | `get_transactions` | Search insider transactions — filter by ticker, insider, date range, transaction codes or whole categories (`exclude_category=derivatives`), 10b5-1 plan trades, a dollar floor (`min_value`), the insider's role (`role`: officer, director or ten_percent_owner), ordering by trade size (`sort=value`; default is newest first), the 13F ownership trend (`inst_ownership_trend`), or use `significant=true` for real discretionary buys/sells only. Pro adds the remaining trade-size screens (`max_value`, `min_shares`, `max_shares`) and post-trade-return screening (`min_return_1d`…`max_return_6m`, `has_returns`; returns are fractions, 0.05 = +5%). Paging depth is plan-limited — see Plans | Free |
 | `get_recent_filings` | Most recent Form 4 filings, optionally filtered by ticker | Free |
 | `list_filings` | Form 4 filings as a paginated list, newest filed first — filter by ticker, cik, or a filed-date window. Use this to page through filings; `get_recent_filings` is the unfiltered head of the same feed | Free |
@@ -266,7 +266,7 @@ Values are `default` or `all`, case-insensitive. In the URL, anything else is an
 
 | Tool | Description | Plan |
 |---|---|---|
-| `get_signals` | Cluster buy/sell signals — multiple insiders at the same company in the same direction. **Excludes 10b5-1 trades automatically** | Business |
+| `get_signals` | Cluster buy/sell signals — multiple insiders at the same company in the same direction. **Excludes 10b5-1 trades automatically**. Free, Starter and Pro get a one-item preview (the latest cluster-buy, `preview: true`, filters ignored); Business gets the full feed | Business (full feed) |
 | `get_sentiment` | MSPR-style monthly sentiment score per ticker (-100 to +100). **10b5-1 excluded** so the score reflects real insider conviction | Business |
 
 ### Form 144 + institutional
@@ -320,7 +320,7 @@ Beyond the 40 tools, this MCP ships 6 **prompts** — ready-made research recipe
 | `institutional_insider_overlap` | `ticker` | Combines 13F-HR institutional holders with recent insider transactions to spot where smart money and insiders agree or diverge |
 | `post_selloff_buys` | `min_return` (default 0.05) | Screens insider buys with post-trade-return filters to surface historically-successful dip-buying patterns |
 
-These map to the recipe workflows scraping-based Form 4 MCPs don't offer — each one leans on data this MCP alone exposes (10b5-1 flags, Form 144, 13F-HR join, per-insider return scoring). Plan requirements are honored honestly: prompts that touch Business-plan tools (`get_signals`, `get_sentiment`, `get_form144`, `get_holdings`, `get_managers`) or Pro-plan tools (`get_insider_career_summary`, `get_insider_scorecard`) instruct the LLM to surface the structured `upgrade_required` response rather than silently failing.
+These map to the recipe workflows scraping-based Form 4 MCPs don't offer — each one leans on data this MCP alone exposes (10b5-1 flags, Form 144, 13F-HR join, per-insider return scoring). Plan requirements are honored honestly: prompts that touch Business-plan tools (`get_sentiment`, `get_form144`, `get_holdings`, `get_managers`) or Pro-plan tools (`get_insider_career_summary`, `get_insider_scorecard`) instruct the LLM to surface the structured `upgrade_required` response rather than silently failing. Below Business, `get_signals` returns a one-signal preview instead of a 402, and the prompts tell the LLM to report it as a preview.
 
 In Claude Desktop, prompts surface as a `/` slash-command picker; in Claude Code or other MCP clients, ask the assistant to "use the insider_monitor prompt for NVDA" (or similar) and it will fetch and follow the recipe.
 

@@ -49,7 +49,7 @@ const insiderMonitor: RecipePrompt = {
 
 1. Call \`research_company\` with ticker="${ticker}" first — it bundles company profile, recent transactions, cluster signals, and sentiment in one call (Business-plan sections degrade gracefully if unavailable; note which ones did).
 2. Call \`get_transactions\` with ticker="${ticker}", exclude_10b5=true, per_page=50 to get the clean discretionary-only transaction list (drops pre-scheduled 10b5-1 disposals that aren't a real signal).
-3. If cluster signals or sentiment came back unavailable in step 1 (Business plan required), call \`get_signals\` (ticker="${ticker}") and \`get_sentiment\` (ticker="${ticker}") directly and report the 402 upgrade path if they fail.
+3. If sentiment came back unavailable in step 1 (Business plan required), call \`get_sentiment\` (ticker="${ticker}") directly and report the 402 upgrade path if it fails. If \`signals_preview\` is true, the signals section is a one-item market-wide preview, not ${ticker}'s signals: say so, and do not treat it as the signal picture for ${ticker}.
 4. For the 1-2 insiders with the largest discretionary buys or sells, call \`get_insider_career_summary\` (Pro plan) with their CIK to pull median post-trade returns — this is what tells you whether this insider's past buys/sells actually predicted anything.
 
 Present a terse, quant-flavored summary:
@@ -80,7 +80,7 @@ const clusterBuyScan: RecipePrompt = {
     const days = args.days && args.days.trim() !== '' ? args.days.trim() : '7'
     return userMessage(`Scan for cluster-buy signals across the market from the last ${days} days. Work through this step by step:
 
-1. Call \`get_signals\` with cluster_buy=true, per_page=50 (Business plan required — surface the upgrade path if it 402s). This tool excludes 10b5-1 plan trades by construction, so every signal returned is discretionary conviction, not scheduled selling noise.
+1. Call \`get_signals\` with cluster_buy=true, per_page=50 (the full feed needs the Business plan; on Free, Starter and Pro it returns a single preview item with \`preview: true\` — report that as a one-signal preview and the upgrade path, not as the week's scan). This tool excludes 10b5-1 plan trades by construction, so every signal returned is discretionary conviction, not scheduled selling noise.
 2. Filter the results client-side to \`detectedAt\` within the last ${days} days.
 3. Rank the remaining signals by conviction: primarily by \`buyerCount\` (more insiders agreeing = higher conviction), tie-broken by \`totalValue\` (larger dollar commitment).
 4. For the top 5-10 ranked signals, call \`get_sentiment\` with each company's ticker (Business plan) to add the current insider-sentiment score for context — does the cluster buy line up with an already-improving sentiment trend, or is it a reversal signal?

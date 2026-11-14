@@ -27,6 +27,10 @@ This ensures clients can always see what tools are available in a given version 
 
 ## [Unreleased]
 
+## [1.19.0] — 2026-11-14
+
+**Tool count: 40** (unchanged). No tool added, renamed or removed; regenerating from the live OpenAPI spec changed no generated tool text.
+
 ### Added
 - Toolsets: `default` (15 curated tools) and `all` (all 40), defined in `src/toolsets.ts`. A tool outside the active set is not registered, so it is absent from `tools/list` and a call to it fails. Prompts are unaffected.
 - Hosted HTTP mode: `?toolsets=all` (or `?toolsets=default`) on the `/mcp` URL picks the toolset per request. An unknown value is an HTTP 400 with a JSON-RPC error naming the accepted values.
@@ -41,6 +45,8 @@ This ensures clients can always see what tools are available in a given version 
 
 ### Changed
 - **Hosted HTTP mode now lists 15 tools by default instead of 40.** Use `https://mcp.form4api.com/mcp?toolsets=all` (or `MCP_DEFAULT_TOOLSETS=all` on a self-hosted server) for the full set. Stdio is unchanged: npm installs and the Claude Desktop extension still get all 40 unless `FORM4API_TOOLSETS=default` is set.
+- `get_signals` wording: since 2026-11-13 the API answers a signed-in Free, Starter or Pro caller with 200 and one preview item (the most recent cluster-buy signal across all companies, `preview: true`; filters ignored; no sell signals; `buySellRatio` 0 and `isClusterSell` false are placeholders) instead of a 402. Business and above still get the full feed. The tool description, README, `manifest.json` and the research prompts now say so.
+- `research_company` flags that preview: `signals_preview: true`, plus a `signals_unavailable` note that it is one market-wide signal, possibly for another company. `summary.cluster_signal_present` counts a preview item only when its ticker is the one researched. A 402 still returns null signals.
 - The server instructions only mention `get_public_stats` when that tool is registered.
 - Tools are sorted by plain code-unit comparison instead of `localeCompare`, so `tools/list` order is the same on every machine. Tests check that titles exist and are unique, that readOnlyHint is set, that names are 64 characters or fewer, and that the order is stable across calls.
 

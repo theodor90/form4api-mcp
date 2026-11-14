@@ -38,6 +38,8 @@ export interface ResearchCompanyResult {
   transactions_unavailable: string | null
   signals: Signal[] | null
   signals_unavailable: string | null
+  /** True when `signals` is the one-item market-wide preview, not this ticker's feed. */
+  signals_preview: boolean
   sentiment: SentimentScore | null
   sentiment_unavailable: string | null
   summary: ResearchCompanySummary
@@ -77,10 +79,16 @@ export async function researchCompany(
       : null
 
   const signals = signalsResult.status === 'fulfilled' ? signalsResult.value : null
+  // Below Business the API returns one preview item: the latest cluster-BUY signal
+  // across the whole market. Filters (including this ticker) are ignored.
+  const signalsPreview =
+    signals !== null && signals.length > 0 && signals.some((s) => s.preview === true)
   const signalsUnavailable =
     signalsResult.status === 'rejected'
       ? 'Cluster signals require the Business plan.'
-      : null
+      : signalsPreview
+        ? `Preview only: one signal, the most recent cluster-buy across all companies (it may not be ${ticker}). Filters are ignored and sell signals are not included, so this is not the signal picture for ${ticker}. The full feed requires the Business plan.`
+        : null
 
   const sentiment = sentimentResult.status === 'fulfilled' ? sentimentResult.value : null
   const sentimentUnavailable =
@@ -97,7 +105,10 @@ export async function researchCompany(
     : 0
   const net = openMarketBuys - openMarketSells
 
-  const clusterSignalPresent = signals !== null && signals.length > 0
+  // A preview item is not filtered by ticker, so it only counts if it is this ticker's.
+  const clusterSignalPresent = signalsPreview
+    ? signals!.some((s) => s.ticker?.toUpperCase() === ticker)
+    : signals !== null && signals.length > 0
   const clusterSignalType = clusterSignalPresent
     ? (signals![0].signalType === 'ClusterBuy' ? 'ClusterBuy' : 'ClusterSell')
     : null
@@ -151,6 +162,7 @@ export async function researchCompany(
     transactions_unavailable: transactionsUnavailable,
     signals,
     signals_unavailable: signalsUnavailable,
+    signals_preview: signalsPreview,
     sentiment,
     sentiment_unavailable: sentimentUnavailable,
     summary,

@@ -2,7 +2,7 @@
   "dxt_version": "0.1",
   "name": "form4api-mcp",
   "display_name": "Form4API — SEC Insider Trading",
-  "version": "1.18.0",
+  "version": "1.19.0",
   "description": "Production-grade SEC Form 4 insider trading data for Claude Desktop. Amendment-aware, 10b5-1 clean, with Form 144 intent-to-sell, institutional 13F-HR overlay, congressional STOCK Act trades and the insider/Congress convergence signal. One MCP that replaces multiple scrapers.",
   "author": {
     "name": "Theodor Nielsen",
@@ -98,7 +98,7 @@
     },
     {
       "name": "get_signals",
-      "description": "Cluster buy/sell signals — multiple insiders at the same company in the same direction, 10b5-1 excluded. Requires Business plan."
+      "description": "Cluster buy/sell signals — multiple insiders at the same company in the same direction, 10b5-1 excluded. Business plan gets the full feed; lower plans get a one-signal preview."
     },
     {
       "name": "get_form144",
@@ -170,7 +170,7 @@
     },
     {
       "name": "research_company",
-      "description": "Bundled AI-ready insider-research context for a ticker: company profile, recent transactions, cluster signals, sentiment, and a computed buy/sell summary in one call."
+      "description": "Bundled AI-ready insider-research context for a ticker: company profile, recent transactions, cluster signals (a one-signal preview below Business), sentiment, and a computed buy/sell summary in one call."
     },
     {
       "name": "get_status_history",
