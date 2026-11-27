@@ -5,7 +5,6 @@ import type { Filing } from '../types.js'
 export const getRecentFilingsSchema = z.object({
   ticker: z.string().optional().describe('Filter to one stock ticker, case-insensitive, e.g. NVDA. Omit for the unfiltered market-wide feed.'),
   per_page: z.number().int().min(1).max(100).optional().default(20).describe('Results per page. Defaults to 20, maximum 100.'),
-  page: z.number().int().min(1).optional().default(1).describe('1-based page number. Defaults to 1.'),
 })
 
 export const getFilingSchema = z.object({
@@ -19,7 +18,6 @@ export async function getRecentFilings(client: Form4ApiClient, input: GetRecentF
   return client.get<Filing[]>('/v1/filings/recent', {
     ticker: input.ticker,
     per_page: input.per_page,
-    page: input.page,
   })
 }
 

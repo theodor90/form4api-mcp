@@ -160,7 +160,7 @@ export function buildServer(client: Form4ApiClient, cache?: TtlCache, options: C
     server,
     'get_recent_filings',
     'Latest Form 4 filings',
-    'Live feed of the newest SEC Form 4 filings, sorted most-recent-first, optionally filtered to one ticker. New filings typically appear within ~60 seconds of SEC publication. Use this to check "what just happened" rather than get_transactions (built for filtered/historical search across date ranges and codes). Returns per-filing accession number, filed/period-of-report dates, company + insider identity, and transaction count; pass the accession number to get_filing for full detail. Free plan. Paginated, max 100/page.',
+    'Live feed of the newest SEC Form 4 filings, sorted most-recent-first, optionally filtered to one ticker. New filings typically appear within ~60 seconds of SEC publication. Use this to check "what just happened" rather than get_transactions (built for filtered/historical search across date ranges and codes). Returns per-filing accession number, filed/period-of-report dates, company + insider identity, and transaction count; pass the accession number to get_filing for full detail. Free plan. Not paginated: returns the newest per_page filings (max 100); to page further back use list_filings.',
     getRecentFilingsSchema.shape,
     async (input) => {
       try {

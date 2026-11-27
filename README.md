@@ -19,12 +19,12 @@ An [MCP](https://modelcontextprotocol.io) server that exposes the hosted [Form4A
 
 ## Hosted (no install)
 
-Nothing to install or run: point your client at the hosted server and send your API key as a header. The hosted server lists a curated set of 15 tools by default; add `?toolsets=all` to the URL for all 40 (see [Toolsets](#toolsets)). 6 prompts either way. Get a free key (500 requests/day, no card) at [www.form4api.com](https://www.form4api.com) → Dashboard.
+Nothing to install or run: point your client at the hosted server and send your API key as a header. The hosted server currently lists all 40 tools by default; add `?toolsets=default` to the URL for the curated 15 (see [Toolsets](#toolsets)). 6 prompts either way. Get a free key (500 requests/day, no card) at [www.form4api.com](https://www.form4api.com) → Dashboard.
 
 - **URL:** `https://mcp.form4api.com/mcp` (Streamable HTTP)
 - **Auth:** `Authorization: Bearer YOUR_API_KEY` (an `X-Api-Key: YOUR_API_KEY` header also works). Keys in the query string are ignored.
-- **Everything:** `https://mcp.form4api.com/mcp?toolsets=all` lists all 40 tools instead of the default 15.
-- **No key:** the keyless tools (`get_public_stats`, `get_data_quality`, `get_status_history`, `verify_setup`) still work (all but `verify_setup` need `?toolsets=all`), limited to 120 requests per minute per IP (and 1200 per minute across all keyless callers). Every other tool asks you to send a key.
+- **Curated set:** `https://mcp.form4api.com/mcp?toolsets=default` lists 15 tools instead of all 40. (`?toolsets=all` is the same as the plain URL for now.)
+- **No key:** the keyless tools (`get_public_stats`, `get_data_quality`, `get_status_history`, `verify_setup`) still work (with `?toolsets=default` only `verify_setup` is listed), limited to 120 requests per minute per IP (and 1200 per minute across all keyless callers). Every other tool asks you to send a key.
 
 **Claude Code:**
 ```sh
@@ -71,7 +71,13 @@ claude mcp add --transport http form4api https://mcp.form4api.com/mcp --header "
 
 **n8n, Dify and other HTTP-capable agents:** add an MCP client/tool with the URL `https://mcp.form4api.com/mcp`, transport Streamable HTTP, and one header `Authorization` = `Bearer YOUR_API_KEY`.
 
-**claude.ai custom connectors and ChatGPT** sign in with OAuth, which the hosted server does not support yet. It is coming later. Until then, use one of the clients above or the local install below.
+**claude.ai** (custom connector, using request headers):
+- Pro/Max: Customize > Connectors ([claude.ai/customize/connectors](https://claude.ai/customize/connectors)) > **+ Add** > **Add custom connector**. Enter a name and the URL `https://mcp.form4api.com/mcp`, then Continue.
+- Team/Enterprise: an Owner adds it under Organization settings > Connectors (Add > Custom > Web); members then click Connect.
+- Set Authentication to **No sign in**. Under **Request headers** > Add, set the header `Authorization` to `Bearer YOUR_API_KEY` (`X-Api-Key` = `YOUR_API_KEY` also works).
+- Request headers are a beta that Anthropic has enabled only for a limited set of organizations and accounts. If your account has no Request headers section, this route is not available to you yet.
+
+ChatGPT and claude.ai accounts without Request headers need OAuth sign-in, which the hosted server does not support yet. Until then, use one of the clients above or the local install below.
 
 ---
 
@@ -227,7 +233,7 @@ A tool outside the active set is not registered: it is missing from `tools/list`
 "env": { "FORM4API_KEY": "YOUR_API_KEY", "FORM4API_TOOLSETS": "default" }
 ```
 
-**Hosted (`mcp.form4api.com`):** the default is the 15. Add `?toolsets=all` to the URL (`https://mcp.form4api.com/mcp?toolsets=all`) to get all 40; `?toolsets=default` is also accepted. If a client calls a tool outside the active set, the error says the tool exists and how to enable it. When you run your own HTTP server, `MCP_DEFAULT_TOOLSETS=all` changes the default for every request.
+**Hosted (`mcp.form4api.com`):** the hosted service is currently configured with `MCP_DEFAULT_TOOLSETS=all`, so the plain URL lists all 40. Add `?toolsets=default` (`https://mcp.form4api.com/mcp?toolsets=default`) to get the curated 15; `?toolsets=all` is also accepted. If a client calls a tool outside the active set, the error says the tool exists and how to enable it. When you run your own HTTP server, `MCP_DEFAULT_TOOLSETS=all` changes the default for every request.
 
 Values are `default` or `all`, case-insensitive. In the URL, anything else is an HTTP 400 that names the accepted values. In `FORM4API_TOOLSETS` or `MCP_DEFAULT_TOOLSETS`, anything else prints one warning to stderr at startup and the server uses its normal default. The Claude Desktop extension (DXT) is stdio and lists all 40.
 
