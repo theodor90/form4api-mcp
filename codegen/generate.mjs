@@ -48,6 +48,10 @@ const SKIP_OPERATIONS = new Set([
   'ListWatchlists',
   'GetWatchlist',
   'GetWatchlistActivity',
+  // Recent-errors summary for a key (/v1/keys/usage/errors), added to the API
+  // after 1.19.0. Kept out until the next release decides whether it becomes a
+  // tool next to get_key_activity, which changes the published tool count.
+  'GetKeyErrors',
 ])
 
 // Operations that have a hand-written tool wrapper in src/tools/*.ts. The

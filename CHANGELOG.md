@@ -27,6 +27,12 @@ This ensures clients can always see what tools are available in a given version 
 
 ## [Unreleased]
 
+### Fixed
+- `get_recent_filings`: removed the `page` argument. `GET /v1/filings/recent` has no page parameter, so page 2 silently returned page 1. The tool returns the newest `per_page` filings (max 100); use `list_filings` to page.
+
+### Changed
+- README: claude.ai custom connector setup using request headers (beta, limited accounts), and the hosted default tool count corrected (the hosted service lists all 40 by default; `?toolsets=default` gives the curated 15).
+
 ## [1.19.0] — 2026-11-14
 
 **Tool count: 40** (unchanged). No tool added, renamed or removed; regenerating from the live OpenAPI spec changed no generated tool text.
