@@ -19,7 +19,7 @@ import { GENERATED_TOOLS } from './tools/_generated.js'
 import { RECIPE_PROMPTS } from './prompts/recipes.js'
 import { assertDefaultToolsRegistered, inToolset, type Toolset } from './toolsets.js'
 import type { TtlCache } from './cache.js'
-import type { ZodRawShape } from 'zod'
+import { z, type ZodRawShape } from 'zod'
 
 // get_public_stats is outside the default toolset, so the instructions only point
 // at it when it is registered.
@@ -54,7 +54,34 @@ function wrapError(err: unknown): { content: Array<{ type: 'text'; text: string 
 // the spec can skip confirmation prompts and mark the tools as safe.
 // idempotentHint is true because every tool is a pure GET: repeating a call has
 // no additional effect.
-const READ_ONLY = { readOnlyHint: true, openWorldHint: true, idempotentHint: true } as const
+// destructiveHint is spelled out even though readOnlyHint implies it: the
+// ChatGPT app review wants explicit booleans on every hint.
+const READ_ONLY = { readOnlyHint: true, destructiveHint: false, openWorldHint: true, idempotentHint: true } as const
+
+/**
+ * Wraps a tool's argument shape in a strict object, so an argument the tool
+ * does not take is an error instead of being silently dropped. Before 1.19.1,
+ * `get_recent_filings` called with a removed `page` argument quietly returned
+ * page 1, and the caller believed it had paged. The message names the unknown
+ * argument and every accepted one, so a model can correct the call.
+ */
+export function strictArgs(toolName: string, shape: ZodRawShape) {
+  const accepted = Object.keys(shape)
+  return z
+    .object(shape, {
+      errorMap: (issue, ctx) =>
+        issue.code === 'unrecognized_keys'
+          ? {
+              message:
+                `Unknown argument${issue.keys.length > 1 ? 's' : ''} ${issue.keys.map((k) => `"${k}"`).join(', ')}. ` +
+                (accepted.length
+                  ? `${toolName} accepts: ${accepted.join(', ')}.`
+                  : `${toolName} takes no arguments.`),
+            }
+          : { message: ctx.defaultError },
+    })
+    .strict()
+}
 
 type ToolResult = { content: Array<{ type: 'text'; text: string }>; isError?: true }
 
@@ -96,7 +123,7 @@ function registerReadOnlyTool(
     {
       title,
       description,
-      inputSchema: shape,
+      inputSchema: strictArgs(name, shape),
       annotations: { ...READ_ONLY, title },
     },
     handler as never,

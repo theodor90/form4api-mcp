@@ -27,10 +27,16 @@ This ensures clients can always see what tools are available in a given version 
 
 ## [Unreleased]
 
+## [1.19.1] — 2026-11-28
+
+**Tool count: 40** (unchanged). No tool added or renamed; `get_recent_filings` lost one argument.
+
 ### Fixed
+- Every tool now rejects arguments it does not take. Before, an unknown argument was silently dropped, so a caller could believe a filter or page had applied when it had not. The error names the unknown argument and lists the accepted ones, for example `Unknown argument "page". get_recent_filings accepts: ticker, per_page.` Tool input schemas now declare `additionalProperties: false`.
 - `get_recent_filings`: removed the `page` argument. `GET /v1/filings/recent` has no page parameter, so page 2 silently returned page 1. The tool returns the newest `per_page` filings (max 100); use `list_filings` to page.
 
 ### Changed
+- `destructiveHint: false` is now set explicitly on every tool, next to `readOnlyHint`, `openWorldHint` and `idempotentHint`. The ChatGPT app review asks for explicit booleans.
 - README: claude.ai custom connector setup using request headers (beta, limited accounts), and the hosted default tool count corrected (the hosted service lists all 40 by default; `?toolsets=default` gives the curated 15).
 
 ## [1.19.0] — 2026-11-14
